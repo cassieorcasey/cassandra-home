@@ -6,6 +6,7 @@ const paths = {
   chevronLeft: 'M15 5l-7 7 7 7',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
+  arrowUpRight: 'M7 17L17 7M8 7h9v9',
   external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
   grid: 'M5 5h4v4H5zM15 5h4v4h-4zM5 15h4v4H5zM15 15h4v4h-4z',

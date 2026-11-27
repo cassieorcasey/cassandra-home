@@ -23,22 +23,22 @@ export function Squiggle({ reduced }: { reduced: boolean }) {
     <svg className="squiggle" viewBox="0 0 300 18" preserveAspectRatio="none" aria-hidden>
       <defs>
         <linearGradient id={`${id}-g`} x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#c9d3e0" stopOpacity="0" />
-          <stop offset="0.05" stopColor="#c9d3e0" />
-          <stop offset="0.95" stopColor="#d4fdeb" />
-          <stop offset="1" stopColor="#d4fdeb" stopOpacity="0" />
+          <stop offset="0" style={{ stopColor: 'var(--squiggle-a)', stopOpacity: 0 }} />
+          <stop offset="0.05" style={{ stopColor: 'var(--squiggle-a)' }} />
+          <stop offset="0.95" style={{ stopColor: 'var(--squiggle-b)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--squiggle-b)', stopOpacity: 0 }} />
         </linearGradient>
         <mask id={`${id}-m`} maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="18">
           <g className={reduced ? undefined : 'squiggle-flow'}>
             <motion.path
               d={D}
               stroke="#fff"
-              strokeWidth="5"
+              strokeWidth="6"
               fill="none"
               strokeLinecap="round"
               initial={reduced ? false : { pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ duration: 1.1, delay: 0.35, ease: [0.2, 0, 0, 1] }}
+              transition={{ duration: 1.1, delay: 0.55, ease: [0.2, 0, 0, 1] }}
             />
           </g>
         </mask>
