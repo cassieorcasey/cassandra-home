@@ -1,1 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9d3e0"/><stop offset="1" stop-color="#d4fdeb"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#g)"/><path d="M41 22a13 13 0 1 0 0 20" fill="none" stroke="#2b252c" stroke-width="6" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- squircle: gradasi diagonal Mist Blush → Periwinkle Mist -->
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efddea"/>
+      <stop offset="1" stop-color="#c9d3e0"/>
+    </linearGradient>
+    <!-- aksen Seafoam Mint di sudut kanan bawah -->
+    <radialGradient id="mint" cx="1" cy="1" r="0.75">
+      <stop offset="0" stop-color="#d4fdeb"/>
+      <stop offset="1" stop-color="#d4fdeb" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="1" y="1" width="62" height="62" rx="18" fill="url(#base)"/>
+  <rect x="1" y="1" width="62" height="62" rx="18" fill="url(#mint)"/>
+  <!-- tepi kristal -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="17.5" fill="none" stroke="#ffffff" stroke-opacity="0.82"/>
+  <!-- monogram C berbentuk prisma segi enam yang terbuka di kanan -->
+  <path d="M45.9 24 32 16 18.1 24v16L32 48l13.9-8" fill="none" stroke="#4a3f42" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

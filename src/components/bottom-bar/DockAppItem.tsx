@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useRef, useState } from 'react';
 import { BOTTOM_BAR_SPRINGS, DOCK_GEOMETRY } from '../../config/motion';
 import { gaussianX, pointer, targetOf, useProximityTarget } from '../../hooks/usePointerProximity';
 import type { CassandraApp, Rect, WindowLifecycle } from '../../types/os';
+import { AppTile } from '../ui/AppTile';
 
 export interface DockAppItemProps {
   app: CassandraApp;
@@ -87,7 +88,7 @@ export const DockAppItem = forwardRef<HTMLButtonElement, DockAppItemProps>(funct
         }}
       >
         <span ref={faceScope} className="dock-face" data-active={active ? '' : undefined}>
-          <img src={app.icon} alt="" width={g.icon} height={g.icon} draggable={false} />
+          <AppTile id={app.id} size={g.icon} />
         </span>
         {running && <span className="dock-dot" aria-hidden />}
       </motion.button>

@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { useId } from 'react';
 
-const HALVES = 10; // lima gelombang penuh (puncak + lembah)
+const HALVES = 8; // empat gelombang penuh, seperti referensi
 const HALF = 294 / HALVES;
 
 /** Gelombang dari x = 3 sampai tepat 297, diam setelah tergambar. */
@@ -30,7 +30,7 @@ export function Squiggle({ reduced }: { reduced: boolean }) {
       <motion.path
         d={D}
         stroke={`url(#${id}-g)`}
-        strokeWidth="5"
+        strokeWidth="6"
         fill="none"
         strokeLinecap="round"
         initial={reduced ? false : { pathLength: 0, opacity: 0 }}

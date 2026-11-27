@@ -7,8 +7,8 @@
   --mint: #d4fdeb;
 
   /* fungsional (Light) */
-  --ink: #2b252c;
-  --ink-2: #6b575b; /* Quartz Ink, 6.48:1 di #fcfbfd */
+  --ink: #4a3f42; /* Deep Mineral Taupe: 9.8:1 di #fcfbfd, 7.1:1 di #e4d4df */
+  --ink-2: #75666a; /* Muted Quartz: 5.3:1 di #fcfbfd; di bawah gradasi hanya di atas kaca */
   --signal: #238b5d; /* Mint Signal */
   --surface: #fcfbfd;
   --glass-bg: rgba(255, 255, 255, 0.62);
@@ -16,9 +16,25 @@
   --card-border: rgba(107, 87, 91, 0.35);
   --shadow: 0 8px 24px rgba(43, 37, 44, 0.12);
   --shadow-lg: 0 24px 60px rgba(43, 37, 44, 0.18);
-  --wall-a: rgba(201, 211, 224, 0.45);
-  --wall-b: rgba(212, 253, 235, 0.5);
-  --wall-base: linear-gradient(180deg, #fcfbfd 0%, #efddea 58%, #e4d4df 100%);
+  /* Frosted Mineral Tile: kanvas */
+  --bg-top: #fcfbfd; /* = meta theme-color */
+  --bg-mid: #efddea;
+  --bg-bottom: #e4d4df;
+
+  /* Frosted Mineral Tile: 5 swatch Ore Color */
+  --swatch-lemma: #b7a7aa;
+  --swatch-synthesis: #e4d4df;
+  --swatch-conway: #c9d3e0;
+  --swatch-subset: #d4fdeb;
+  --swatch-wishy: #efddea;
+
+  /* Frosted Mineral Tile: tinta & kaca */
+  --ink-primary: #4a3f42;
+  --ink-secondary: #75666a;
+  --glass-surface: rgba(255, 255, 255, 0.56);
+  --tile-rim: rgba(255, 255, 255, 0.82);
+  --glass-shadow: rgba(74, 63, 66, 0.06);
+  --ease-tile: cubic-bezier(0.22, 1, 0.36, 1);
 
   --font-display: 'Unbounded', system-ui, sans-serif;
   --font-body: 'Syne', system-ui, sans-serif;
@@ -85,34 +101,21 @@ button {
 }
 
 /* ============ Wallpaper + ambient drift ============ */
+body {
+  min-height: 100dvh;
+  background-color: var(--bg-top);
+  color: var(--ink-primary);
+}
+/* dua bias cahaya radial di atas gradasi vertikal, meniru kilau tipis batu kristal */
 .wallpaper {
   position: fixed;
   inset: 0;
-  background: var(--wall-base);
   z-index: 0;
-  overflow: hidden;
-}
-.wallpaper::before {
-  content: '';
-  position: absolute;
-  inset: -20%;
-  background:
-    radial-gradient(circle at 18% 22%, var(--wall-a), transparent 48%),
-    radial-gradient(circle at 82% 74%, var(--wall-b), transparent 52%);
-  animation: drift 24s ease-in-out infinite alternate;
-}
-@keyframes drift {
-  to {
-    transform: translate3d(4%, -3%, 0) rotate(4deg);
-  }
-}
-:root[data-window-open] .wallpaper::before {
-  animation-play-state: paused;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wallpaper::before {
-    animation: none;
-  }
+  background-color: var(--bg-top);
+  background-image:
+    radial-gradient(circle at 14% 22%, rgba(201, 211, 224, 0.34) 0%, transparent 46%),
+    radial-gradient(circle at 86% 74%, rgba(212, 253, 235, 0.38) 0%, transparent 48%),
+    linear-gradient(180deg, #fcfbfd 0%, #f8f2f7 45%, #efddea 78%, #e4d4df 100%);
 }
 
 /* ============ Glass (hanya lapisan mengambang) ============ */
@@ -163,7 +166,7 @@ button {
 /* Hero terpusat (tata letak mengikuti referensi): sapaan, judul + ombak, ajakan, kartu aplikasi */
 .hero {
   min-height: calc(100svh - 120px);
-  max-width: 860px;
+  max-width: 1048px;
   margin-inline: auto;
   padding: clamp(32px, 7vh, 72px) 24px 24px;
   display: flex;
@@ -199,17 +202,9 @@ button {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(28px, 7vw, 76px);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   white-space: nowrap;
-  /* satu kesatuan meluncur halus ke kanan, bukan per huruf */
-  animation: title-in 1100ms cubic-bezier(0.16, 1, 0.3, 1) 160ms backwards;
-}
-@keyframes title-in {
-  from {
-    opacity: 0;
-    transform: translateX(-48px);
-  }
 }
 /* "cassandra": tebal, diwarnai gradasi web (biru-abu ke hijau) */
 :root {
@@ -220,24 +215,9 @@ button {
   position: relative;
   display: inline-block;
   padding-bottom: 0.12em;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--brand-b);
 }
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .title-word .title-ink {
-    background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-}
-@media (forced-colors: active) {
-  .title-word .title-ink {
-    background: none;
-    color: CanvasText;
-  }
-}
-/* ".home": tipis dan berwarna tinta, mengikuti nama di depannya */
 .title-suffix {
   display: inline-block;
   font-weight: 400;
@@ -290,9 +270,86 @@ button {
   }
 }
 
+/* ============ Frosted Mineral Tile ============ */
+/* ukuran dasar 64 px: radius 18 (28,125%), glyph 28 (43,75%); ukuran lain proporsional */
+.app-tile {
+  --tile: 64px;
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: calc(var(--tile) * 0.28125);
+  color: var(--ink-primary);
+  background-color: var(--glass-surface);
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.65), var(--tile-tint));
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
+  border: 1px solid var(--tile-rim);
+  box-shadow:
+    0 8px 20px -6px var(--glass-shadow),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  transition:
+    transform 240ms var(--ease-tile),
+    box-shadow 240ms ease;
+}
+.app-tile svg {
+  display: block;
+  width: calc(var(--tile) * 0.4375);
+  height: calc(var(--tile) * 0.4375);
+}
+/* opasitas ujung gradasi dibedakan untuk menyamakan bobot: swatch gelap lebih tipis, swatch terang lebih tebal */
+.app-tile[data-app='lemma'] {
+  --tile-tint: rgba(183, 167, 170, 0.48);
+  --tile-glow: rgba(183, 167, 170, 0.32);
+}
+.app-tile[data-app='synthesis'] {
+  --tile-tint: rgba(228, 212, 223, 0.62);
+  --tile-glow: rgba(228, 212, 223, 0.42);
+}
+.app-tile[data-app='conway'] {
+  --tile-tint: rgba(201, 211, 224, 0.58);
+  --tile-glow: rgba(201, 211, 224, 0.4);
+}
+.app-tile[data-app='subset'] {
+  --tile-tint: rgba(212, 253, 235, 0.65);
+  --tile-glow: rgba(212, 253, 235, 0.45);
+}
+.app-tile[data-app='wishy'] {
+  --tile-tint: rgba(239, 221, 234, 0.62);
+  --tile-glow: rgba(239, 221, 234, 0.42);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-tile {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: #fff;
+  }
+}
+@media (prefers-contrast: more) {
+  .app-tile {
+    border-color: var(--ink-secondary);
+  }
+}
+@media (forced-colors: active) {
+  .app-tile {
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-tile {
+    transition: none;
+  }
+  .app-card:hover .app-tile {
+    transform: none;
+  }
+}
+
 /* ---- kartu aplikasi ---- */
 .quick-apps {
-  width: min(820px, 100%);
+  width: min(1000px, 100%);
   margin-top: 16px;
   display: flex;
   flex-direction: column;
@@ -350,16 +407,7 @@ button {
 .app-card-icon {
   position: relative;
   flex: none;
-  width: 44px;
-  height: 44px;
-}
-.app-card-icon img {
   display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 23%;
-  outline: 1px solid var(--card-border);
-  outline-offset: -1px;
 }
 .app-card-dot {
   position: absolute;
@@ -379,17 +427,18 @@ button {
   gap: 3px;
 }
 .app-card-title {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 600;
   line-height: 1.25;
+  color: var(--ink-primary);
 }
 .app-card-sub {
   font-family: var(--font-body);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.3;
-  color: var(--ink-2);
+  color: var(--ink-secondary);
 }
 .app-card-arrow {
   flex: none;
@@ -400,13 +449,19 @@ button {
     transform 180ms cubic-bezier(0.2, 0, 0, 1),
     opacity 180ms cubic-bezier(0.2, 0, 0, 1);
 }
+.app-card:hover .app-tile,
+.app-card:focus-visible .app-tile {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 26px -6px var(--tile-glow),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
 .app-card:hover .app-card-arrow {
   transform: translate(2px, -2px);
   opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .title,
   .enter,
   .split,
   .ch {
@@ -457,8 +512,8 @@ button {
   font-weight: 600;
   font-size: 15px;
 }
-.window-title img {
-  border-radius: 6px;
+.window-title .app-tile {
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 .hdr-actions,
 .menu-wrap {
@@ -535,7 +590,7 @@ button {
   display: grid;
   place-items: center;
 }
-.frame-placeholder img {
+.frame-placeholder .app-tile {
   border-radius: 23%;
   box-shadow: var(--shadow);
   animation: breathe 1.6s ease-in-out infinite alternate;
@@ -547,7 +602,7 @@ button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .frame-placeholder img {
+  .frame-placeholder .app-tile {
     animation: none;
   }
 }
@@ -608,9 +663,6 @@ button {
   gap: 8px;
   text-align: center;
   padding: 24px;
-}
-.preview-card img {
-  border-radius: 23%;
 }
 .preview-card h2 {
   font-family: var(--font-display);
@@ -693,8 +745,7 @@ button {
 .spotlight-list li.is-selected {
   background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
-.spotlight-list img {
-  border-radius: 9px;
+.spotlight-list .app-tile {
   flex: none;
 }
 .spotlight-list span {

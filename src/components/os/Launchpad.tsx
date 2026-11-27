@@ -4,6 +4,7 @@ import type { Rect } from '../../hooks/useWindowManager';
 import { Icon } from '../ui/Icon';
 import { RotatingGreeting } from '../ui/RotatingGreeting';
 import { Squiggle } from '../ui/Squiggle';
+import { AppTile } from '../ui/AppTile';
 
 interface Props {
   hidden: boolean;
@@ -16,12 +17,26 @@ interface Props {
 const PROMPT = 'Which app are you opening today?';
 
 /** Teks dipecah per huruf untuk animasi masuk; pembaca layar membaca teks utuh. */
-function Split({ text, delay = 160 }: { text: string; delay?: number }) {
+function Split({ text, delay = 160, gradient = false }: { text: string; delay?: number; gradient?: boolean }) {
+  const n = [...text].length;
   return (
     <>
       <span className="split" aria-hidden>
         {[...text].map((c, i) => (
-          <span key={i} className="ch" style={{ '--i': i, '--d0': `${delay}ms` } as React.CSSProperties}>
+          <span
+            key={i}
+            className="ch"
+            style={
+              {
+                '--i': i,
+                '--d0': `${delay}ms`,
+                // gradasi per huruf: tetap utuh selama tiap huruf beranimasi sendiri-sendiri
+                ...(gradient && {
+                  color: `color-mix(in oklab, var(--brand-a), var(--brand-b) ${Math.round((i / Math.max(1, n - 1)) * 100)}%)`,
+                }),
+              } as React.CSSProperties
+            }
+          >
             {c === ' ' ? ' ' : c}
           </span>
         ))}
@@ -49,12 +64,15 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
           <RotatingGreeting paused={hidden} reduced={reduced} />
         </p>
 
-        <h1 className="title">
+        {/* seperti referensi: kedua bagian masuk bersamaan per huruf, rapat dari renggang */}
+        <h1 className="title" aria-label="cassandra.home">
           <span className="title-word">
-            <span className="title-ink">cassandra</span>
+            <Split text="cassandra" gradient />
             <Squiggle reduced={reduced} />
           </span>
-          <span className="title-suffix">.home</span>
+          <span className="title-suffix">
+            <Split text=".home" />
+          </span>
         </h1>
 
         <p className="prompt" lang="en">
@@ -79,7 +97,7 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
                 }}
               >
                 <span className="app-card-icon" data-launch={`grid-${app.id}`}>
-                  <img src={app.icon} alt="" width={44} height={44} draggable={false} />
+                  <AppTile id={app.id} size={64} />
                   {running.has(app.id) && <span className="app-card-dot" aria-hidden />}
                 </span>
                 <span className="app-card-meta">

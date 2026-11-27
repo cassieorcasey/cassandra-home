@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { appById } from '../../config/apps.config';
 import type { Win, WindowActions } from '../../hooks/useWindowManager';
+import { AppTile } from '../ui/AppTile';
 
 export type Placement = 'stage' | 'deck' | 'hidden';
 
@@ -95,7 +96,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
           )}
 
           <div className="window-title">
-            <img src={app.icon} alt="" width={20} height={20} />
+            <AppTile id={app.id} size={20} />
             <span>{app.name}</span>
           </div>
 
@@ -162,14 +163,14 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
               />
               {loading && (
                 <div className="frame-placeholder">
-                  <img src={app.icon} alt="" width={72} height={72} />
+                  <AppTile id={app.id} size={72} />
                   <span className="sr-only">Memuat {app.name}…</span>
                 </div>
               )}
             </>
           ) : (
             <div className="preview-card">
-              <img src={app.icon} alt="" width={88} height={88} />
+              <AppTile id={app.id} size={88} />
               <h2>{app.name}</h2>
               <p>{app.tagline}</p>
               <a className="btn-primary" href={app.url} target="_blank" rel="noopener">

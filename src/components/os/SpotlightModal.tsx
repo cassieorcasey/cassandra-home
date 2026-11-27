@@ -2,6 +2,7 @@ import { Icon } from '../ui/Icon';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apps } from '../../config/apps.config';
+import { AppTile } from '../ui/AppTile';
 
 interface Props {
   reduced: boolean;
@@ -78,7 +79,7 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
               onMouseEnter={() => setSel(i)}
               onClick={() => pick(i)}
             >
-              <img src={app.icon} alt="" width={36} height={36} />
+              <AppTile id={app.id} size={36} />
               <span>
                 <strong>{app.name}</strong>
                 <small>{app.tagline}</small>

@@ -12,7 +12,6 @@ export const apps: CassandraApp[] = [
     category: 'App',
     url: `${base}/lemma/`,
     embedMode: 'iframe',
-    icon: `${import.meta.env.BASE_URL}icons/lemma.webp`,
     featured: true,
   },
   {
@@ -22,7 +21,6 @@ export const apps: CassandraApp[] = [
     category: 'App',
     url: `${base}/synthesis/`,
     embedMode: 'iframe',
-    icon: `${import.meta.env.BASE_URL}icons/synthesis.webp`,
     featured: true,
   },
   {
@@ -32,7 +30,6 @@ export const apps: CassandraApp[] = [
     category: 'Tool',
     url: `${base}/conway/`,
     embedMode: 'iframe',
-    icon: `${import.meta.env.BASE_URL}icons/conway.webp`,
   },
   {
     id: 'subset',
@@ -41,7 +38,6 @@ export const apps: CassandraApp[] = [
     category: 'Tool',
     url: `${base}/subset/`,
     embedMode: 'iframe',
-    icon: `${import.meta.env.BASE_URL}icons/subset.webp`,
   },
   {
     id: 'wishy',
@@ -50,7 +46,6 @@ export const apps: CassandraApp[] = [
     category: 'Tool',
     url: `${base}/wishy/`,
     embedMode: 'iframe',
-    icon: `${import.meta.env.BASE_URL}icons/wishy.webp`,
   },
 ];
 

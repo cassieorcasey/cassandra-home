@@ -7,7 +7,6 @@ export interface CassandraApp {
   category: 'App' | 'Tool' | 'Social' | 'Experiment';
   url: string;
   embedMode: 'iframe' | 'preview-card';
-  icon: string;
   featured?: boolean;
 }
 

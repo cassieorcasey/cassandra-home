@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { appById } from '../../config/apps.config';
 import { BOTTOM_BAR_SPRINGS } from '../../config/motion';
 import type { Flight } from '../../types/os';
+import { AppTile } from '../ui/AppTile';
 
 interface Props {
   flight: Flight | null;
@@ -66,7 +67,9 @@ function FlightShell({ flight, onLanded }: { flight: Flight; onLanded: (key: num
       onLayoutAnimationComplete={() => at === 'to' && land()}
     >
       {/* layout → skala induk dibalik, ikon tetap persegi */}
-      <motion.img layout src={app.icon} alt="" width={icon} height={icon} className="flight-icon" />
+      <motion.span layout className="flight-icon">
+        <AppTile id={app.id} size={icon} />
+      </motion.span>
     </motion.div>
   );
 }
