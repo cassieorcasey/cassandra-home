@@ -10,8 +10,6 @@
   --dock-bg-solid: rgba(252, 251, 253, 0.94);
   --dock-border: rgba(183, 167, 170, 0.35);
   --dock-shadow: 0 12px 36px -8px rgba(183, 167, 170, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  /* setiap titik ≥ 4,76:1 di atas dok terang */
-  --signature-gradient: linear-gradient(110deg, #5c5154 0%, #75656a 25%, #566b80 50%, #3a755e 75%, #5c5154 100%);
   --dock-dot: #1f7a52;
   --dock-ring: #1f7a52;
   --dock-glow: rgba(212, 253, 235, 0.55);
@@ -25,7 +23,6 @@
   --dock-bg-solid: rgba(24, 22, 27, 0.96);
   --dock-border: rgba(228, 212, 223, 0.22);
   --dock-shadow: 0 14px 40px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(212, 253, 235, 0.16);
-  --signature-gradient: linear-gradient(110deg, #efddea 0%, #c9d3e0 30%, #d4fdeb 55%, #e4d4df 80%, #efddea 100%);
   --dock-dot: #d4fdeb;
   --dock-ring: #7fe3b5;
   --dock-glow: rgba(212, 253, 235, 0.22);
@@ -39,8 +36,7 @@
     --dock-bg-solid: rgba(24, 22, 27, 0.96);
     --dock-border: rgba(228, 212, 223, 0.22);
     --dock-shadow: 0 14px 40px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(212, 253, 235, 0.16);
-    --signature-gradient: linear-gradient(110deg, #efddea 0%, #c9d3e0 30%, #d4fdeb 55%, #e4d4df 80%, #efddea 100%);
-    --dock-dot: #d4fdeb;
+      --dock-dot: #d4fdeb;
     --dock-ring: #7fe3b5;
     --dock-glow: rgba(212, 253, 235, 0.22);
     --focus-ring: #7fe3b5;
@@ -74,6 +70,7 @@
   align-items: flex-end;
   gap: 18px;
   padding: 8px 10px;
+  border-radius: 24px;
   border: 1px solid var(--dock-border);
   box-shadow: var(--dock-shadow);
   max-width: calc(100vw - 24px);
@@ -113,74 +110,17 @@
   touch-action: pan-y; /* gulir vertikal tetap milik browser; scrub horizontal di JS */
 }
 
-/* ============ Marka Cassandra ============ */
-.ubb-brand {
-  display: flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 6px 0 8px;
+/* ============ Tombol Home ============ */
+.dock-home {
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--ink-2);
 }
-.ubb-brand-text,
-.ubb-pill-text {
-  display: inline-block;
-  transform-origin: left center;
-}
-.sig {
-  display: inline-flex;
-  white-space: nowrap;
-  contain: layout paint;
-  padding: 4px 0; /* ruang untuk angkat 3px tanpa terpotong */
-}
-.sig-letters {
-  display: inline-flex;
-}
-.sig-slot {
-  display: inline-block;
-  text-align: center;
-  contain: layout;
-}
-.sig-glyph {
-  display: inline-block;
-  font-family: 'Unbounded', system-ui, sans-serif;
-  font-size: 1.35rem;
-  line-height: 1.1;
-  font-variation-settings: 'wght' 600;
-  font-weight: 600;
+.dock-home:hover,
+.dock-home[aria-current] {
   color: var(--ink);
-}
-.sig[data-ready] .sig-glyph {
-  background-image: var(--signature-gradient);
-  background-repeat: repeat-x;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-.ubb-pill {
-  position: relative;
-  flex: none;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-  border: 1px solid var(--dock-border);
-  margin-bottom: 2px;
-}
-.ubb-pill:hover {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
-}
-.ubb-pill.is-mono {
-  justify-content: center;
-  padding: 0;
-}
-.ubb-mono-c {
-  font-family: 'Unbounded', system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 20px;
-  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
 }
 
 /* ============ Pemisah kaca ============ */
@@ -297,18 +237,6 @@
   .ubb {
     gap: 6px;
     padding: 8px;
-  }
-  .ubb.is-home {
-    flex-direction: column;
-    align-items: center;
-  }
-  .ubb.is-home .ubb-brand {
-    height: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-  .ubb.is-home .ubb-brand-text {
-    transform-origin: center;
   }
   .dock-divider {
     height: 24px;

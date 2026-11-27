@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { apps } from '../../config/apps.config';
 import type { Rect } from '../../hooks/useWindowManager';
 import { AppIcon } from '../ui/AppIcon';
+import { Squiggle } from '../ui/Squiggle';
 
 interface Props {
   hidden: boolean;
@@ -44,15 +45,7 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
         </motion.p>
         <motion.h1 {...rise(1)}>
           Cassandra
-          <svg className="squiggle" viewBox="0 0 300 18" preserveAspectRatio="none" aria-hidden>
-            <defs>
-              <linearGradient id="sq" x1="0" x2="1">
-                <stop offset="0" stopColor="#c9d3e0" />
-                <stop offset="1" stopColor="#d4fdeb" />
-              </linearGradient>
-            </defs>
-            <path d="M2 10 Q 20 2 38 10 T 74 10 T 110 10 T 146 10 T 182 10 T 218 10 T 254 10 T 298 10" stroke="url(#sq)" strokeWidth="5" fill="none" strokeLinecap="round" />
-          </svg>
+          <Squiggle reduced={reduced} />
         </motion.h1>
         <motion.p className="subtitle" {...rise(2)}>
           Ekosistem web app produktivitas. Ketuk ikon untuk langsung mencobanya di sini.

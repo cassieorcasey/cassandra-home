@@ -284,6 +284,23 @@ kbd {
   width: 100%;
   height: 16px;
 }
+/* ombak mengalir satu periode (72 satuan viewBox) per 2,4 detik; berhenti saat jendela terbuka */
+.squiggle-flow {
+  animation: squiggle-flow 2.4s linear infinite;
+}
+@keyframes squiggle-flow {
+  to {
+    transform: translateX(-72px);
+  }
+}
+:root[data-window-open] .squiggle-flow {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .squiggle-flow {
+    animation: none;
+  }
+}
 .subtitle {
   font-family: var(--font-body);
   font-size: 17px;

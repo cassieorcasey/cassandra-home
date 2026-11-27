@@ -7,7 +7,8 @@ Live: https://cassieorcasey.github.io/cassandra-home/
 ## Fitur
 
 - **Center Stage + Side Stage Strip** (desktop): jendela lain mengecil ke strip kiri, klik kartu untuk menukar fokus. Iframe tidak pernah dimuat ulang saat berpindah.
-- **Unified Bottom Bar**: marka kinetik "Cassandra" + dok dengan pembesaran Gaussian; saat aplikasi terbuka marka menyusut jadi pil Home. Ikon terbang ke jendela dan kembali saat minimize. Di ponsel, geser jari di dok untuk memilih aplikasi.
+- **Dok bawah**: tombol Home + ikon aplikasi dengan pembesaran Gaussian; ikon terbang ke jendela dan kembali saat minimize. Di ponsel, geser jari di dok untuk memilih aplikasi.
+- **Garis ombak** di bawah judul Cassandra tergambar saat dimuat lalu terus mengalir.
 - **Spotlight** (`⌘/Ctrl + K` atau tombol cari): cari aplikasi berdasarkan nama atau fungsi.
 - `Esc` mengecilkan jendela ke deck, tidak pernah menutup sesi.
 - Tema Sistem / Terang / Gelap, dukungan reduced motion, reduced transparency, dan increased contrast.
