@@ -60,9 +60,9 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
           <Split text={PROMPT} delay={420} />
         </p>
 
-        <section className="quick-apps" aria-labelledby="quick-apps-label">
+        <section className="quick-apps" aria-labelledby="quick-apps-label" lang="en">
           <p id="quick-apps-label" className="quick-apps-label enter" style={{ '--d': '420ms' } as React.CSSProperties}>
-            Aplikasi
+            Apps
           </p>
           <div className="quick-apps-grid">
             {ordered.map((app, i) => (
@@ -71,7 +71,7 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
                 type="button"
                 className="app-card enter"
                 style={{ '--d': `${460 + i * 60}ms` } as React.CSSProperties}
-                aria-label={`Buka ${app.name}: ${app.tagline}`}
+                aria-label={`Open ${app.name}: ${app.tagline}`}
                 onClick={(e) => {
                   const r = e.currentTarget.querySelector('.app-card-icon')!.getBoundingClientRect();
                   onLaunch(app.id, { x: r.left, y: r.top, w: r.width, h: r.height });

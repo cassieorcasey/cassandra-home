@@ -8,7 +8,7 @@ export const apps: CassandraApp[] = [
   {
     id: 'lemma',
     name: 'Lemma',
-    tagline: 'Catatan hasil belajar: apa yang kamu pahami hari ini?',
+    tagline: 'Learning notebook: what did you understand today?',
     category: 'App',
     url: `${base}/lemma/`,
     embedMode: 'iframe',
@@ -18,7 +18,7 @@ export const apps: CassandraApp[] = [
   {
     id: 'synthesis',
     name: 'Synthesis',
-    tagline: 'Peta materi belajar yang saling terhubung.',
+    tagline: 'A connected map of your study materials.',
     category: 'App',
     url: `${base}/synthesis/`,
     embedMode: 'iframe',
@@ -28,7 +28,7 @@ export const apps: CassandraApp[] = [
   {
     id: 'conway',
     name: 'Conway',
-    tagline: 'Roadmap menuju Lead Data Scientist.',
+    tagline: 'Roadmap to Lead Data Scientist.',
     category: 'Tool',
     url: `${base}/conway/`,
     embedMode: 'iframe',
@@ -37,7 +37,7 @@ export const apps: CassandraApp[] = [
   {
     id: 'subset',
     name: 'Subset',
-    tagline: 'Budget amplop untuk tiap kategori pengeluaran.',
+    tagline: 'Envelope budgets for every spending category.',
     category: 'Tool',
     url: `${base}/subset/`,
     embedMode: 'iframe',
@@ -46,7 +46,7 @@ export const apps: CassandraApp[] = [
   {
     id: 'wishy',
     name: 'Wishy',
-    tagline: 'Papan wishlist belanja.',
+    tagline: 'Shopping wishlist board.',
     category: 'Tool',
     url: `${base}/wishy/`,
     embedMode: 'iframe',
