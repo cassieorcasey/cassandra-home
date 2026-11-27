@@ -30,7 +30,7 @@ export function UnifiedBottomBar(p: UnifiedBottomBarProps) {
   const { apps, lifecycles, activeId, mobile, reduced } = p;
   const mode = activeId ? 'active' : 'home';
   const g = mobile ? DOCK_GEOMETRY.touch : DOCK_GEOMETRY.desktop;
-  const gap = mobile && p.viewportWidth < 340 ? 6 : g.gap;
+  const gap = mobile && p.viewportWidth < 340 ? 6 : mobile && p.viewportWidth < 380 ? 8 : g.gap;
 
   const barRef = useProximityTarget<HTMLElement>('ubb');
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);

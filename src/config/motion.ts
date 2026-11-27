@@ -10,6 +10,6 @@ export const BOTTOM_BAR_SPRINGS = {
 } as const;
 
 export const DOCK_GEOMETRY = {
-  desktop: { icon: 48, gap: 14, smax: 1.32, sigma: 62, lift: 24, activateAbove: 24 },
-  touch: { icon: 44, gap: 8, smax: 1.2, sigma: 52, lift: 20 },
+  desktop: { icon: 48, gap: 22, smax: 1.32, sigma: 62, lift: 24, activateAbove: 24 },
+  touch: { icon: 44, gap: 12, smax: 1.2, sigma: 52, lift: 20 },
 } as const;
