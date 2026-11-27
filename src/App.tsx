@@ -5,7 +5,7 @@ import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
 import { FlightLayer } from './components/stage/FlightLayer';
 import { useMorph } from './hooks/useMorph';
-import { clampWindowRect, deckSlot, stageRect, STRIP_RESERVED, useViewport } from './hooks/useViewport';
+import { clampWindowRect, deckSlot, stageRect, STRIP_LEFT_LIMIT, STRIP_RESERVED, useViewport } from './hooks/useViewport';
 import { isLive, useWindowManager, type Win, type WindowActions } from './hooks/useWindowManager';
 import type { AppId, Rect, RectSnapshot } from './types/os';
 
@@ -26,9 +26,13 @@ export default function App() {
 
   const stage = stageRect(vp, state.expanded);
   const normalStage = stageRect(vp, false);
+  const deckOnDesktop = !vp.mobile && state.deck.length > 0;
+  /** Strip kiri tampil (desktop, tidak expanded): jendela tidak boleh digeser menutupinya. */
+  const stripLeft = deckOnDesktop && !state.expanded ? STRIP_LEFT_LIMIT : undefined;
 
   /** Geometri jendela di desktop non-expanded: Rect kustom (dijepit ke viewport saat ini) atau stage normal. */
-  const customRect = (w: Win | undefined) => (w?.rect ? clampWindowRect(w.rect, vp) : normalStage);
+  const customRect = (w: Win | undefined) =>
+    w?.rect ? clampWindowRect(w.rect, vp, undefined, stripLeft) : normalStage;
   /** Rect yang benar-benar ditempati jendela saat aktif di stage. */
   const effectiveRect = (id: AppId) =>
     vp.mobile || state.expanded ? stage : customRect(state.wins.find((w) => w.id === id));
@@ -124,7 +128,6 @@ export default function App() {
   }, [onKey]);
 
   const flight = state.flight;
-  const deckOnDesktop = !vp.mobile && state.deck.length > 0;
   const dim: LaunchpadDim = !hasActive ? 'none' : flight?.phase === 'opening' ? 'dim' : 'away';
 
   return (
@@ -157,10 +160,11 @@ export default function App() {
             placement = 'hidden';
             const b = morphing.from;
             target = { x: b.left, y: b.top, w: b.width, h: b.height, scale: 1, opacity: 1 };
-          } else if (!vp.mobile && !state.expanded && deckIndex !== -1 && !win.minimized) {
+          } else if (!vp.mobile && !state.expanded && deckIndex !== -1 && deckIndex <= 3 && !win.minimized) {
+            // strip menampilkan 4 kartu; sisanya 'hidden' supaya .deck-hit tak terpasang (klik/Tab)
             placement = 'deck';
-            const slot = deckSlot(vp, deckIndex);
-            target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: deckIndex > 3 ? 0 : 1 };
+            const slot = deckSlot(vp, deckIndex, state.deck.length);
+            target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: 1 };
           } else {
             placement = 'hidden';
             // tetap di Rect kustomnya agar membuka lagi dari kartu tidak melompat
@@ -177,6 +181,7 @@ export default function App() {
               expanded={state.expanded}
               canCycle={live.length > 1}
               vp={vp}
+              stripLeft={stripLeft}
               reduced={reduced}
               wm={actions}
               onFrameKey={onKey}

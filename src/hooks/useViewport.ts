@@ -43,15 +43,24 @@ export function stageRect(vp: Viewport, expanded: boolean): Rect {
   return { x: left, y: top, w: vp.w - left - 24, h: vp.h - top - STAGE_MARGIN - vp.sab };
 }
 
-/** Posisi kartu ke-i di Side Stage Strip (desktop). */
-export function deckSlot(vp: Viewport, i: number) {
+/**
+ * Posisi kartu ke-i dari `count` kartu di Side Stage Strip (desktop). Skala dibatasi lebar
+ * strip DAN tinggi layar: di tablet portrait stage sangat tinggi, sehingga skala lebar saja
+ * membuat kartu ketiga keluar layar (768×1024: bawah kartu di y=1139). Kartu yang lebih
+ * sempit dari strip dipusatkan.
+ */
+export function deckSlot(vp: Viewport, i: number, count: number) {
   const stage = stageRect(vp, false);
-  const scale = STRIP_W / stage.w;
+  const n = Math.min(Math.max(count, 1), 4);
+  const avail = vp.h - TOPBAR_H - 20 - STAGE_MARGIN - vp.sab;
+  const scale = Math.min(STRIP_W / stage.w, (avail - (n - 1) * 16) / (n * stage.h));
   const cardH = stage.h * scale;
-  return { x: STRIP_X, y: TOPBAR_H + 20 + Math.min(i, 3) * (cardH + 16), scale };
+  return { x: STRIP_X + (STRIP_W - stage.w * scale) / 2, y: TOPBAR_H + 20 + Math.min(i, 3) * (cardH + 16), scale };
 }
 
 export const STRIP_RESERVED = STRIP_X + STRIP_W + 28;
+/** Batas kiri jendela desktop saat strip tampil: 12 px di kanan thumbnail. */
+export const STRIP_LEFT_LIMIT = STRIP_X + STRIP_W + 12;
 
 /** Ukuran minimum jendela desktop: header dan tombol kontrol tidak bertabrakan. */
 export const MIN_WIN_W = 360;
@@ -69,9 +78,11 @@ const clampNum = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo)
  * .window-header selalu terjangkau.
  * - Tanpa `edge` (drag, viewport berubah ukuran): ukuran dijepit dulu, lalu posisi.
  * - Dengan `edge` (resize): hanya sisi yang ditarik yang bergerak; sisi seberang tetap diam.
+ * - `minLeft`: batas kiri (strip kiri aktif → STRIP_LEFT_LIMIT).
  */
-export function clampWindowRect(r: Rect, vp: Viewport, edge?: ResizeEdge): Rect {
-  const L = WIN_MARGIN;
+export function clampWindowRect(r: Rect, vp: Viewport, edge?: ResizeEdge, minLeft = WIN_MARGIN): Rect {
+  // minLeft > margin saat Side Stage Strip tampil: jendela tidak boleh menutupi thumbnail-nya
+  const L = minLeft;
   const T = TOPBAR_H + WIN_MARGIN;
   const R = vp.w - WIN_MARGIN;
   const B = vp.h - WIN_MARGIN - vp.sab;

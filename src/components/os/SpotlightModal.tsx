@@ -41,7 +41,6 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
     return apps.filter((a) => `${a.name} ${a.tagline} ${a.category}`.toLowerCase().includes(t));
   }, [q]);
 
-  useEffect(() => setSel(0), [q]);
 
   const pick = (i: number) => {
     const app = results[i];
@@ -73,14 +72,17 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
           <input
             ref={inputRef}
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setSel(0); // hasil berubah → sorotan kembali ke baris pertama
+            }}
             placeholder="Cari nama atau fungsi aplikasi"
             aria-label="Cari aplikasi"
             aria-controls="spotlight-results"
             aria-activedescendant={results[sel] ? `sr-${results[sel].id}` : undefined}
             enterKeyHint="go"
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
+              if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.max(0, Math.min(s + 1, results.length - 1))); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
               if (e.key === 'Enter') { e.preventDefault(); pick(sel); }
             }}

@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { Fragment } from 'react';
 import { apps } from '../../config/apps.config';
 import { WINDOW_MORPH } from '../../config/motion';
 import type { AppId } from '../../types/os';
@@ -34,29 +35,50 @@ function gradientAt(t: number) {
     : `color-mix(in oklab, var(--brand-m), var(--brand-b) ${Math.round(((t - M) / (1 - M)) * 100)}%)`;
 }
 
-/** Teks dipecah per huruf untuk animasi masuk; pembaca layar membaca teks utuh. */
+/**
+ * Teks dipecah per huruf untuk animasi masuk; pembaca layar membaca teks utuh.
+ * Huruf dikelompokkan per kata (.split-word, nowrap) sehingga baris hanya boleh patah di
+ * spasi antarkata, bukan di antara dua huruf inline-block (dulu "toda / y?" di 320 px).
+ * Indeks --i tetap dihitung atas seluruh teks (spasi ikut) agar urutan animasi tidak berubah.
+ */
 function Split({ text, delay = 160, gradient = false }: { text: string; delay?: number; gradient?: boolean }) {
-  const n = [...text].length;
+  const chars = [...text];
+  const n = chars.length;
+  const words: { start: number; chars: string[] }[] = [];
+  chars.forEach((c, i) => {
+    if (c === ' ') return;
+    const last = words[words.length - 1];
+    if (last && last.start + last.chars.length === i) last.chars.push(c);
+    else words.push({ start: i, chars: [c] });
+  });
   return (
     <>
       <span className="split" aria-hidden>
-        {[...text].map((c, i) => (
-          <span
-            key={i}
-            className="ch"
-            style={
-              {
-                '--i': i,
-                '--d0': `${delay}ms`,
-                // gradasi per huruf: tetap utuh selama tiap huruf beranimasi sendiri-sendiri
-                ...(gradient && {
-                  color: gradientAt(i / Math.max(1, n - 1)),
-                }),
-              } as React.CSSProperties
-            }
-          >
-            {c === ' ' ? ' ' : c}
-          </span>
+        {words.map((w, wi) => (
+          <Fragment key={w.start}>
+            {wi > 0 && ' '}
+            <span className="split-word">
+              {w.chars.map((c, j) => {
+                const i = w.start + j;
+                return (
+                  <span
+                    key={i}
+                    className="ch"
+                    style={
+                      {
+                        '--i': i,
+                        '--d0': `${delay}ms`,
+                        // gradasi per huruf: tetap utuh selama tiap huruf beranimasi sendiri-sendiri
+                        ...(gradient && { color: gradientAt(i / Math.max(1, n - 1)) }),
+                      } as React.CSSProperties
+                    }
+                  >
+                    {c}
+                  </span>
+                );
+              })}
+            </span>
+          </Fragment>
         ))}
       </span>
       <span className="sr-only">{text}</span>

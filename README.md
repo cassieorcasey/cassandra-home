@@ -1,17 +1,19 @@
-# Cassandra Home
+# cassandra.suite
 
-Landing page bergaya OS untuk ekosistem web app Cassandra: Lemma, Synthesis, Conway, Subset, dan Wishy. Setiap aplikasi dibuka sebagai jendela di dalam halaman (Stage Manager + Tab-Deck), dengan animasi pegas dari ikon ke jendela.
+Landing page bergaya OS untuk ekosistem web app Cassandra: Lemma, Synthesis, Conway, Subset, dan Wishy. Setiap aplikasi dibuka sebagai jendela di dalam halaman, tumbuh langsung dari kartunya di Launchpad dan pulang ke sana saat ditutup (Tile-to-Window Morph).
 
 Live: https://cassieorcasey.github.io/cassandra-home/
 
 ## Fitur
 
-- **Center Stage + Side Stage Strip** (desktop): jendela lain mengecil ke strip kiri, klik kartu untuk menukar fokus. Iframe tidak pernah dimuat ulang saat berpindah.
-- **Dok bawah**: tombol Home + ikon aplikasi dengan pembesaran Gaussian; ikon terbang ke jendela dan kembali saat minimize. Di ponsel, geser jari di dok untuk memilih aplikasi.
-- **Garis ombak** di bawah judul Cassandra tergambar saat dimuat lalu terus mengalir.
-- **Spotlight** (`⌘/Ctrl + K` atau tombol cari): cari aplikasi berdasarkan nama atau fungsi.
-- `Esc` mengecilkan jendela ke deck, tidak pernah menutup sesi.
-- Tema Sistem / Terang / Gelap, dukungan reduced motion, reduced transparency, dan increased contrast.
+- **Launchpad**: sapaan berganti bahasa, judul cassandra.suite dengan garis ombak yang tergambar sekali saat dimuat, dan kartu SPACES. Titik hijau di kartu menandai aplikasi yang sesinya masih hidup.
+- **Tile-to-Window Morph**: jendela tumbuh dari kartu SPACES (atau baris Spotlight) dan menyusut kembali ke kartunya saat ditutup atau dikecilkan. Bisa dibatalkan di tengah jalan tanpa melompat.
+- **Center Stage + Side Stage Strip** (desktop): jendela lain mengecil ke strip kiri; klik kartunya untuk menukar fokus. Iframe tidak pernah dimuat ulang saat berpindah.
+- **Jendela desktop**: geser lewat header, ubah ukuran lewat tepi kiri/kanan/bawah dan busur sudut bawah, perluas ke layar penuh.
+- **Ponsel**: jendela penuh layar; swipe header ke bawah untuk kembali ke Launchpad, ke samping untuk pindah aplikasi.
+- **Spotlight** (`⌘/Ctrl + K`): cari aplikasi berdasarkan nama atau fungsi.
+- `Esc` (atau tombol −) mengembalikan jendela ke Launchpad tanpa menutup sesinya; tombol × menutup sesi.
+- Dukungan reduced motion (morph diganti crossfade 120 ms), reduced transparency, increased contrast, dan forced colors.
 
 ## Stack
 
@@ -19,7 +21,7 @@ React 19, TypeScript, Vite, `motion`. Deploy otomatis ke GitHub Pages lewat GitH
 
 ## Menambah aplikasi
 
-Daftarkan di `src/config/apps.config.ts` dan taruh ikon 256×256 di `public/icons/`. Aplikasi di `cassieorcasey.github.io/<repo>/` berbagi origin dengan halaman ini, jadi sesi login dan pintasan keyboard bekerja di dalam iframe.
+Daftarkan di `src/config/apps.config.ts` dan taruh ikon tanpa latar di `public/icons/<id>-mark.webp`. Aplikasi di `cassieorcasey.github.io/<repo>/` berbagi origin dengan halaman ini, jadi sesi login dan pintasan keyboard (`Esc`, `⌘/Ctrl + K`) bekerja di dalam iframe. Bila aplikasi sendiri memakai `Esc` (mis. menutup dialog) dan memanggil `preventDefault()`, jendelanya tidak ikut dikecilkan.
 
 ## Menjalankan lokal
 

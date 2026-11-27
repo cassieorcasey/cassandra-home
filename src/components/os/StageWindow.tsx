@@ -24,6 +24,8 @@ interface Props {
   canCycle: boolean;
   /** Viewport saat ini; dipakai pembatas geometri selama drag/resize. */
   vp: Viewport;
+  /** Batas kiri jendela saat Side Stage Strip tampil (undefined = margin biasa). */
+  stripLeft?: number;
   reduced: boolean;
   wm: WindowActions;
   onFrameKey: (e: KeyboardEvent) => void;
@@ -31,6 +33,7 @@ interface Props {
 
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
 const reducedFade = WINDOW_MORPH.reducedFadeMs / 1000;
+const LOAD_TIMEOUT_MS = 15000;
 
 /** Tepi atas sengaja tanpa pegangan: header-lah pegangan geser (pola referensi). */
 const EDGES: ResizeEdge[] = ['e', 'w', 's', 'se', 'sw'];
@@ -73,7 +76,7 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, target, morph, mobile, expanded, canCycle, vp, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, target, morph, mobile, expanded, canCycle, vp, stripLeft, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const active = placement === 'stage';
@@ -150,14 +153,14 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
           ? { ...s, y: s.y + (dy > 0 ? dy : dy * 0.15) }
           : { ...s, x: s.x + dx * (canCycle ? 0.6 : 0.15) };
     } else if (g.kind === 'move') {
-      next = clampWindowRect({ ...s, x: s.x + dx, y: s.y + dy }, vp);
+      next = clampWindowRect({ ...s, x: s.x + dx, y: s.y + dy }, vp, undefined, stripLeft);
     } else {
       const k = g.kind;
       const left = s.x + (k.includes('w') ? dx : 0);
       const top = s.y + (k.includes('n') ? dy : 0);
       const right = s.x + s.w + (k.includes('e') ? dx : 0);
       const bottom = s.y + s.h + (k.includes('s') ? dy : 0);
-      next = clampWindowRect({ x: left, y: top, w: right - left, h: bottom - top }, vp, k);
+      next = clampWindowRect({ x: left, y: top, w: right - left, h: bottom - top }, vp, k, stripLeft);
     }
     liveRef.current = next;
     setLive(next);
@@ -222,6 +225,15 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
   // jangan tinggalkan kunci seleksi/cursor global bila jendela dilepas saat gesture berjalan
   useEffect(() => () => setGlobalLock(null), []);
 
+  // Placeholder tidak boleh menggantung selamanya bila koneksi iframe tak pernah selesai
+  // (Chrome & Safari tetap memicu load untuk halaman galat/X-Frame-Options; ini untuk yang hang).
+  useEffect(() => {
+    if (!loading) return;
+    const t = window.setTimeout(() => wm.markReady(win.id), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, win.nonce]);
+
   const onHeaderDown = (e: ReactPointerEvent<HTMLElement>) => {
     if ((e.target as Element).closest(NO_DRAG)) return;
     begin(e, mobile ? 'swipe' : 'move');
@@ -230,11 +242,17 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
 
   // Bridge pintasan: aplikasi Cassandra satu origin, jadi keydown di dalam iframe bisa didengar langsung.
   const keyRef = useRef(onFrameKey);
-  keyRef.current = onFrameKey;
+  useEffect(() => {
+    keyRef.current = onFrameKey;
+  });
   const attachBridge = () => {
     try {
       const w = frameRef.current?.contentWindow;
-      w?.addEventListener('keydown', (e) => keyRef.current(e));
+      w?.addEventListener('keydown', (e) => {
+        // aplikasi sudah memakai tombol ini (mis. Esc menutup dialognya sendiri): jangan ikut menciutkan jendela
+        if (e.defaultPrevented) return;
+        keyRef.current(e);
+      });
     } catch {
       /* lintas-origin: pintasan tidak diteruskan, Tab tetap bisa keluar */
     }
@@ -242,7 +260,9 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
 
   const geo = live ?? target;
   const initial = { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: target.scale, scaleY: target.scale, opacity: 0 };
-  const exit = { opacity: 0, transition: { duration: reduced ? reducedFade : 0.08 } };
+  // dengan morph kontennya sudah pudar; exit instan agar tak memakai nilai morph milik peluncuran berikutnya
+  const exit = { opacity: 0, transition: { duration: morph ? 0 : reduced ? reducedFade : 0.08 } };
+  const hideNow = placement === 'hidden' && !morph;
   // selama morph permukaan jendela transparan (proxy di bawahnya yang menggambar), kontennya
   // dipotong ke kotak proxy dan memudar lewat morph.content
   const shown = morph ? 1 : target.opacity;
@@ -263,7 +283,10 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
         scaleY: target.scale,
         opacity: shown,
         borderRadius: mobile && active ? 0 : 18,
-        transitionEnd: { visibility: placement === 'hidden' && !morph ? 'hidden' : 'visible' },
+        // tampil seketika di awal animasi (dulu baru 'visible' di transitionEnd → ~150 ms tak terlihat
+        // lalu konten muncul mendadak); sembunyi hanya setelah selesai memudar
+        visibility: hideNow ? undefined : 'visible',
+        transitionEnd: hideNow ? { visibility: 'hidden' } : undefined,
       }}
       exit={exit}
       transition={
@@ -327,8 +350,11 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
           <motion.div
             className="loading-bar"
             aria-hidden
-            initial={false}
-            animate={loading ? { width: '90%', opacity: 1 } : { width: '100%', opacity: 0 }}
+            // mulai dari 0 (dulu initial={false} langsung menampilkan 90 %, animasinya tak pernah jalan)
+            initial={{ scaleX: 0, opacity: 1 }}
+            // scaleX (komposit) bukan width (layout tiap frame selama 2,4 s)
+            style={{ originX: 0 }}
+            animate={loading ? { scaleX: 0.9, opacity: 1 } : { scaleX: 1, opacity: 0 }}
             transition={loading ? { duration: 2.4, ease: [0.2, 0, 0, 1] } : { duration: 0.35 }}
             key={win.nonce}
           />
