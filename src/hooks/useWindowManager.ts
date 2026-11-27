@@ -1,5 +1,5 @@
 import { useMemo, useReducer } from 'react';
-import type { AppId, Flight, WindowLifecycle } from '../types/os';
+import type { AppId, Flight, Rect, WindowLifecycle } from '../types/os';
 
 export type { Rect } from '../types/os';
 
@@ -11,6 +11,9 @@ export interface Win {
   /** Naik setiap aplikasi dibuka dari keadaan tertutup. Dipakai sebagai key jendela agar
    *  pembukaan ulang saat animasi tutup masih berjalan selalu memasang iframe baru. */
   session: number;
+  /** Geometri hasil drag/resize di desktop. Bertahan selama di Side Stage Strip atau
+   *  di-minimize; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
+  rect?: Rect;
 }
 
 export interface WMState {
@@ -34,6 +37,7 @@ type Action =
   | { type: 'landed'; key: number }
   | { type: 'ready'; id: AppId }
   | { type: 'refresh'; id: AppId }
+  | { type: 'setRect'; id: AppId; rect: Rect }
   | { type: 'toggleExpand' };
 
 const withFlight = (s: WMState, id: AppId, direction: Flight['direction'], f: FlightInput): Pick<WMState, 'flight' | 'seq'> =>
@@ -99,6 +103,8 @@ function reducer(s: WMState, a: Action): WMState {
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'ready' } : w)) };
     case 'refresh':
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'loading', nonce: w.nonce + 1 } : w)) };
+    case 'setRect':
+      return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, rect: a.rect } : w)) };
     case 'toggleExpand':
       return { ...s, expanded: !s.expanded };
   }
@@ -124,6 +130,7 @@ export function useWindowManager() {
       landed: (key: number) => dispatch({ type: 'landed', key }),
       markReady: (id: AppId) => dispatch({ type: 'ready', id }),
       refresh: (id: AppId) => dispatch({ type: 'refresh', id }),
+      setRect: (id: AppId, rect: Rect) => dispatch({ type: 'setRect', id, rect }),
       toggleExpand: () => dispatch({ type: 'toggleExpand' }),
     }),
     [],
@@ -139,4 +146,8 @@ export interface WindowActions {
   refresh: (id: AppId) => void;
   toggleExpand: () => void;
   markReady: (id: AppId) => void;
+  /** Rect final setelah drag/resize (dikirim sekali pada pointerup/pointercancel). */
+  setRect: (id: AppId, rect: Rect) => void;
+  /** Pindah ke aplikasi berjalan berikutnya (1) atau sebelumnya (-1) dari `id`, berputar. */
+  cycle: (id: AppId, dir: 1 | -1) => void;
 }

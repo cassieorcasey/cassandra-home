@@ -714,6 +714,119 @@ body {
 .stage-window.is-hidden {
   pointer-events: none;
 }
+
+/* ---- drag & resize (desktop, jendela aktif non-expanded) ---- */
+.stage-window.is-movable .window-header {
+  touch-action: none;
+}
+/* 8 pegangan di tepi dalam (overflow: hidden + radius 18 px memotong yang di luar kontur).
+   Sudut 18 px agar masih ada area di balik lengkungan; sudut atas berbentuk L supaya tidak
+   menutupi tombol header (traffic mulai 11 px dari kiri/atas, aksi kanan 7 px dari kanan, 3 px dari atas; posisi pegangan diukur dari dalam border 1 px). */
+.rz {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+.rz-n,
+.rz-s {
+  left: 18px;
+  right: 18px;
+}
+.rz-n {
+  top: 0;
+  height: 2px;
+}
+.rz-s {
+  bottom: 0;
+  height: 5px;
+}
+.rz-e,
+.rz-w {
+  top: 18px;
+  bottom: 18px;
+  width: 5px;
+}
+.rz-e {
+  right: 0;
+}
+.rz-w {
+  left: 0;
+}
+.rz-ne,
+.rz-nw,
+.rz-se,
+.rz-sw {
+  width: 18px;
+  height: 18px;
+}
+.rz-nw {
+  top: 0;
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 10px, 10px 10px, 10px 100%, 0 100%);
+}
+.rz-ne {
+  top: 0;
+  right: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 6px) 100%, calc(100% - 6px) 2px, 0 2px);
+}
+.rz-se {
+  bottom: 0;
+  right: 0;
+}
+.rz-sw {
+  bottom: 0;
+  left: 0;
+}
+/* layar sentuh (tablet ≥768 px memakai mode desktop): pegangan selebar jari di tepi samping/bawah
+   dan sudut bawah. Tepi atas tetap tipis agar tombol header tidak tertutup; geser lewat header. */
+@media (pointer: coarse) {
+  .rz-s {
+    height: 16px;
+    left: 32px;
+    right: 32px;
+  }
+  .rz-e,
+  .rz-w {
+    width: 14px;
+    top: 52px;
+    bottom: 32px;
+  }
+  .rz-se,
+  .rz-sw {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* ponsel: header jendela aktif bisa di-swipe (bawah = minimize, samping = pindah aplikasi) */
+.stage-window.is-swipeable .window-header {
+  touch-action: none;
+}
+.swipe-grabber {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: rgba(114, 100, 104, 0.32);
+  pointer-events: none;
+}
+
+/* selama gesture: iframe tidak boleh mencuri pointer, teks tidak terseleksi, cursor seragam */
+.stage-window.is-interacting .window-body iframe {
+  pointer-events: none;
+}
+.stage-window.is-interacting,
+html[data-wm-interacting] body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+html[data-wm-interacting],
+html[data-wm-interacting] * {
+  cursor: var(--wm-cursor, default) !important;
+}
 .window-inner {
   display: flex;
   flex-direction: column;

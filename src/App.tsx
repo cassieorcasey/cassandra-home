@@ -6,8 +6,8 @@ import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
 import { FlightLayer } from './components/stage/FlightLayer';
 import { apps } from './config/apps.config';
-import { deckSlot, stageRect, STRIP_RESERVED, useViewport } from './hooks/useViewport';
-import { lifecycleOf, useWindowManager, type WindowActions } from './hooks/useWindowManager';
+import { clampWindowRect, deckSlot, stageRect, STRIP_RESERVED, useViewport } from './hooks/useViewport';
+import { lifecycleOf, useWindowManager, type Win, type WindowActions } from './hooks/useWindowManager';
 import type { AppId, Rect, WindowLifecycle } from './types/os';
 
 export default function App() {
@@ -38,21 +38,26 @@ export default function App() {
   const normalStage = stageRect(vp, false);
   const fly = (from: Rect | null, to: Rect | null) => (reduced || !from || !to ? null : { from, to });
 
+  /** Geometri jendela di desktop non-expanded: Rect kustom (dijepit ke viewport saat ini) atau stage normal. */
+  const customRect = (w: Win | undefined) => (w?.rect ? clampWindowRect(w.rect, vp) : normalStage);
+  /** Rect yang benar-benar ditempati jendela saat aktif di stage. */
+  const effectiveRect = (id: AppId) =>
+    vp.mobile || state.expanded ? stage : customRect(state.wins.find((w) => w.id === id));
+
   const launch = (id: AppId, origin: Rect | null) => {
-    const target = stageRect(vp, state.expanded);
     if (state.activeId === id) return;
-    wm.launch(id, fly(origin, target));
+    wm.launch(id, fly(origin, effectiveRect(id)));
   };
   const minimize = () => {
     const id = state.activeId;
     if (!id) return;
-    wm.minimize(fly(stage, slotRect(id)));
+    wm.minimize(fly(effectiveRect(id), slotRect(id)));
     // fokus kembali ke ikon aplikasi itu di dok, bukan hilang ke <body>
     requestAnimationFrame(() =>
       document.querySelector<HTMLButtonElement>(`.ubb [data-dock-id="${id}"]`)?.focus({ preventScroll: true }),
     );
   };
-  const close = (id: AppId) => wm.close(id, state.activeId === id ? fly(stage, slotRect(id)) : null);
+  const close = (id: AppId) => wm.close(id, state.activeId === id ? fly(effectiveRect(id), slotRect(id)) : null);
 
   /** Aplikasi yang sedang di Side Stage Strip cukup ditukar; selain itu terbang dari ikon dok. */
   const onDockLaunch = (id: AppId, origin: Rect) => {
@@ -68,6 +73,13 @@ export default function App() {
     refresh: wm.refresh,
     toggleExpand: wm.toggleExpand,
     markReady: wm.markReady,
+    setRect: wm.setRect,
+    cycle: (id, dir) => {
+      const ids = state.wins.map((w) => w.id);
+      const i = ids.indexOf(id);
+      if (i === -1 || ids.length < 2) return;
+      wm.focus(ids[(i + dir + ids.length) % ids.length]);
+    },
   };
 
   const onKey = useCallback(
@@ -83,7 +95,7 @@ export default function App() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spotlight, state.activeId, state.expanded, vp, reduced],
+    [spotlight, state.activeId, state.expanded, state.wins, vp, reduced],
   );
 
   useEffect(() => {
@@ -123,14 +135,15 @@ export default function App() {
             let target;
             if (active) {
               placement = 'stage';
-              target = { ...stage, scale: 1, opacity: 1 };
+              target = { ...effectiveRect(win.id), scale: 1, opacity: 1 };
             } else if (!vp.mobile && !state.expanded && deckIndex !== -1 && !win.minimized) {
               placement = 'deck';
               const slot = deckSlot(vp, deckIndex);
               target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: deckIndex > 3 ? 0 : 1 };
             } else {
               placement = 'hidden';
-              target = { ...normalStage, scale: 1, opacity: 0 };
+              // tetap di Rect kustomnya agar membuka lagi dari dok tidak melompat
+              target = { ...(vp.mobile ? normalStage : customRect(win)), scale: 1, opacity: 0 };
             }
             return (
               <StageWindow
@@ -141,6 +154,8 @@ export default function App() {
                 revealed={flying !== win.id}
                 mobile={vp.mobile}
                 expanded={state.expanded}
+                canCycle={state.wins.length > 1}
+                vp={vp}
                 reduced={reduced}
                 wm={actions}
                 onFrameKey={onKey}
