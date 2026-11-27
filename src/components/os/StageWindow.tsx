@@ -73,7 +73,6 @@ interface Gesture {
 export function StageWindow({ win, placement, target, revealed, mobile, expanded, canCycle, vp, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const active = placement === 'stage';
   const loading = win.load === 'loading';
   /** Drag & resize hanya untuk jendela aktif di desktop, dan dimatikan selama expanded. */
@@ -222,9 +221,6 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
     begin(e, mobile ? 'swipe' : 'move');
   };
 
-  useEffect(() => {
-    if (!active) setMenuOpen(false);
-  }, [active]);
 
   // Bridge pintasan: aplikasi Cassandra satu origin, jadi keydown di dalam iframe bisa didengar langsung.
   const keyRef = useRef(onFrameKey);
@@ -281,18 +277,15 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
           onLostPointerCapture={onUp}
         >
           {swipeable && <span className="swipe-grabber" aria-hidden />}
-          {mobile ? (
-            <button type="button" className="hdr-btn" aria-label="Kembali ke Home" onClick={wm.minimize}>
-              <Icon name="chevronLeft" />
+          {/* kontrol jendela sama di desktop & ponsel; di ponsel jendela selalu penuh, jadi tanpa tombol perbesar */}
+          <div className="traffic" role="group" aria-label="Kontrol jendela">
+            <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
+              <Icon name="close" size={16} />
             </button>
-          ) : (
-            <div className="traffic" role="group" aria-label="Kontrol jendela">
-              <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
-                <Icon name="close" size={16} />
-              </button>
-              <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
-                <Icon name="minus" size={16} />
-              </button>
+            <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
+              <Icon name="minus" size={16} />
+            </button>
+            {!mobile && (
               <button
                 type="button"
                 className="tl tl-max"
@@ -302,49 +295,22 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
               >
                 <Icon name={expanded ? 'shrink' : 'expand'} size={16} />
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="window-title">
             <AppTile id={app.id} size={20} />
             <span>{app.name}</span>
           </div>
 
-          {mobile ? (
-            <div className="menu-wrap">
-              <button
-                type="button"
-                className="hdr-btn"
-                aria-label="Menu jendela"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <Icon name="more" />
-              </button>
-              {menuOpen && (
-                <div className="window-menu glass" role="menu">
-                  <button role="menuitem" onClick={() => { setMenuOpen(false); wm.refresh(win.id); }}>
-                    <Icon name="refresh" />Muat ulang
-                  </button>
-                  <a role="menuitem" href={app.url} target="_blank" rel="noopener" onClick={() => setMenuOpen(false)}>
-                    <Icon name="external" />Buka di tab baru
-                  </a>
-                  <button role="menuitem" className="danger" onClick={() => wm.close(win.id)}>
-                    <Icon name="close" />Tutup aplikasi
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="hdr-actions">
-              <button type="button" className="hdr-btn" aria-label="Muat ulang" title="Muat ulang" onClick={() => wm.refresh(win.id)}>
-                <Icon name="refresh" />
-              </button>
-              <a className="hdr-btn" href={app.url} target="_blank" rel="noopener" aria-label="Buka di tab baru" title="Buka di tab baru">
-                <Icon name="external" />
-              </a>
-            </div>
-          )}
+          <div className="hdr-actions">
+            <button type="button" className="hdr-btn" aria-label="Muat ulang" title="Muat ulang" onClick={() => wm.refresh(win.id)}>
+              <Icon name="refresh" />
+            </button>
+            <a className="hdr-btn" href={app.url} target="_blank" rel="noopener" aria-label="Buka di tab baru" title="Buka di tab baru">
+              <Icon name="external" />
+            </a>
+          </div>
 
           <motion.div
             className="loading-bar"
