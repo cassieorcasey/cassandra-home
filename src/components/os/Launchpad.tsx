@@ -81,7 +81,7 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
 
         <section className="quick-apps" aria-labelledby="quick-apps-label" lang="en">
           <p id="quick-apps-label" className="quick-apps-label enter" style={{ '--d': '420ms' } as React.CSSProperties}>
-            Apps
+            Spaces
           </p>
           <div className="quick-apps-grid">
             {ordered.map((app, i) => (
