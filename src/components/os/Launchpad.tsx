@@ -65,13 +65,13 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
         </p>
 
         {/* seperti referensi: kedua bagian masuk bersamaan per huruf, rapat dari renggang */}
-        <h1 className="title" aria-label="cassandra.home">
+        <h1 className="title" aria-label="cassandra.suite">
           <span className="title-word">
             <Split text="cassandra" gradient />
             <Squiggle reduced={reduced} />
           </span>
           <span className="title-suffix">
-            <Split text=".home" />
+            <Split text=".suite" />
           </span>
         </h1>
 

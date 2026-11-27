@@ -151,7 +151,7 @@ export function UnifiedBottomBar(p: UnifiedBottomBarProps) {
               type="button"
               className="dock-btn dock-home"
               tabIndex={roving === 0 ? 0 : -1}
-              aria-label="Cassandra Home"
+              aria-label="cassandra.suite"
               aria-current={mode === 'home' ? 'page' : undefined}
               title="Home (Esc)"
               whileTap={reduced ? { opacity: 0.7 } : { scale: 0.92 }}
