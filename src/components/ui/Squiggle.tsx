@@ -24,6 +24,7 @@ export function Squiggle({ reduced }: { reduced: boolean }) {
         {/* gradasi yang sama dengan teks "cassandra" */}
         <linearGradient id={`${id}-g`} x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
           <stop offset="0" style={{ stopColor: 'var(--brand-a)' }} />
+          <stop offset="0.55" style={{ stopColor: 'var(--brand-m)' }} />
           <stop offset="1" style={{ stopColor: 'var(--brand-b)' }} />
         </linearGradient>
       </defs>

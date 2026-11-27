@@ -6,10 +6,10 @@
   --ore-periwinkle: #c9d3e0;
   --ore-mint: #d4fdeb;
 
-  --dock-bg: rgba(252, 251, 253, 0.68);
+  --dock-bg: var(--surface-card);
   --dock-bg-solid: rgba(252, 251, 253, 0.94);
-  --dock-border: rgba(183, 167, 170, 0.35);
-  --dock-shadow: 0 12px 36px -8px rgba(183, 167, 170, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --dock-border: rgba(183, 167, 170, 0.32);
+  --dock-shadow: 0 10px 28px -8px rgba(183, 167, 170, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   --dock-dot: #1f7a52;
   --dock-ring: #1f7a52;
   --dock-glow: rgba(212, 253, 235, 0.55);
@@ -56,8 +56,8 @@
   z-index: -1;
   border-radius: inherit;
   background: var(--dock-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .ubb::before {
@@ -88,7 +88,7 @@
   display: grid;
   place-items: center;
   border-radius: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .dock-home:hover,
 .dock-home[aria-current] {

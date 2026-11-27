@@ -16,6 +16,14 @@ interface Props {
 
 const PROMPT = 'Which app are you opening today?';
 
+/** Warna gradasi wordmark di posisi t (0..1): --brand-a → --brand-m (55%) → --brand-b. */
+function gradientAt(t: number) {
+  const M = 0.55;
+  return t <= M
+    ? `color-mix(in oklab, var(--brand-a), var(--brand-m) ${Math.round((t / M) * 100)}%)`
+    : `color-mix(in oklab, var(--brand-m), var(--brand-b) ${Math.round(((t - M) / (1 - M)) * 100)}%)`;
+}
+
 /** Teks dipecah per huruf untuk animasi masuk; pembaca layar membaca teks utuh. */
 function Split({ text, delay = 160, gradient = false }: { text: string; delay?: number; gradient?: boolean }) {
   const n = [...text].length;
@@ -32,7 +40,7 @@ function Split({ text, delay = 160, gradient = false }: { text: string; delay?: 
                 '--d0': `${delay}ms`,
                 // gradasi per huruf: tetap utuh selama tiap huruf beranimasi sendiri-sendiri
                 ...(gradient && {
-                  color: `color-mix(in oklab, var(--brand-a), var(--brand-b) ${Math.round((i / Math.max(1, n - 1)) * 100)}%)`,
+                  color: gradientAt(i / Math.max(1, n - 1)),
                 }),
               } as React.CSSProperties
             }
