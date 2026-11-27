@@ -288,10 +288,10 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
           ) : (
             <div className="traffic" role="group" aria-label="Kontrol jendela">
               <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
-                <Icon name="close" size={10} />
+                <Icon name="close" size={16} />
               </button>
               <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
-                <Icon name="minus" size={10} />
+                <Icon name="minus" size={16} />
               </button>
               <button
                 type="button"
@@ -300,7 +300,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
                 title={expanded ? 'Perkecil' : 'Perluas'}
                 onClick={wm.toggleExpand}
               >
-                <Icon name={expanded ? 'shrink' : 'expand'} size={10} />
+                <Icon name={expanded ? 'shrink' : 'expand'} size={16} />
               </button>
             </div>
           )}

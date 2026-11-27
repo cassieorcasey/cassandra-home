@@ -899,71 +899,47 @@ html[data-wm-interacting] * {
 }
 .traffic {
   display: flex;
-  gap: 0;
+  gap: 6px;
   padding-left: 4px;
 }
+/* tombol jendela monokrom: lingkaran netral 30 px, ikon gelap tebal yang selalu terbaca */
 .tl {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-}
-/* titik 15 px dengan cincin tegas; glyph selalu tampil (dulu tersembunyi sampai hover) */
-.tl::before {
-  content: '';
-  width: 15px;
-  height: 15px;
   border-radius: 50%;
-  grid-area: 1 / 1;
-  background: var(--tl-bg);
-  box-shadow:
-    inset 0 0 0 1px var(--tl-ring),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: filter 140ms ease;
-}
-.tl svg {
-  grid-area: 1 / 1;
-  position: relative;
-  color: var(--tl-ink);
-  opacity: 0.72;
-  transition: opacity 140ms ease;
+  color: var(--ink);
+  background: rgba(114, 100, 104, 0.1);
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
 }
 .tl svg path {
-  stroke-width: 3.2;
+  stroke-width: 2.6;
 }
-.traffic:hover .tl svg,
-.tl:focus-visible svg {
-  opacity: 1;
+.tl:hover {
+  background: rgba(114, 100, 104, 0.18);
+  transform: scale(1.06);
 }
-.tl:hover::before {
-  filter: brightness(0.94);
+.tl:active {
+  background: rgba(114, 100, 104, 0.26);
+  transform: scale(0.94);
 }
-.tl:active::before {
-  filter: brightness(0.86);
+.tl:focus-visible {
+  outline: 2px solid var(--brand-b);
+  outline-offset: 2px;
 }
-.tl-close {
-  --tl-bg: #ff5f57;
-  --tl-ring: #e0443e;
-  --tl-ink: #6e0f0a;
-}
-.tl-min {
-  --tl-bg: #febc2e;
-  --tl-ring: #dea123;
-  --tl-ink: #7a4a00;
-}
-.tl-max {
-  --tl-bg: #28c840;
-  --tl-ring: #1aab29;
-  --tl-ink: #0a5517;
+@media (prefers-reduced-motion: reduce) {
+  .tl:hover,
+  .tl:active {
+    transform: none;
+  }
 }
 @media (forced-colors: active) {
-  .tl::before {
-    background: ButtonText;
-  }
-  .tl svg {
-    color: ButtonFace;
-    opacity: 1;
+  .tl {
+    border: 1px solid ButtonText;
+    color: ButtonText;
   }
 }
 .loading-bar {
