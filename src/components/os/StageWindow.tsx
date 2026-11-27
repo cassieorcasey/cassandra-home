@@ -100,7 +100,9 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
   };
 
   const begin = (e: ReactPointerEvent<HTMLElement>, kind: Gesture['kind']) => {
-    if (!(kind === 'swipe' ? swipeable : interactive) || e.button !== 0 || gesture.current) return;
+    if (!(kind === 'swipe' ? swipeable : interactive) || e.button !== 0) return;
+    // gesture lama yang pointerup-nya hilang tidak boleh memblokir gesture baru
+    if (gesture.current) end(true);
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     gesture.current = {
@@ -184,6 +186,29 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
     if (gesture.current?.pointerId === e.pointerId) end(true);
   };
 
+  // Jaring pengaman: pointerup bisa hilang (tombol dilepas di luar browser, di atas iframe,
+  // capture lepas karena fokus pindah). Tanpa ini gesture menggantung: iframe tetap
+  // pointer-events:none dan seluruh halaman terkunci.
+  const endRef = useRef(end);
+  useEffect(() => {
+    endRef.current = end;
+  });
+  useEffect(() => {
+    if (!busy) return;
+    const finish = (e: PointerEvent) => {
+      if (gesture.current && e.pointerId === gesture.current.pointerId) endRef.current(true);
+    };
+    const abort = () => endRef.current(true);
+    window.addEventListener('pointerup', finish, true);
+    window.addEventListener('pointercancel', finish, true);
+    window.addEventListener('blur', abort);
+    return () => {
+      window.removeEventListener('pointerup', finish, true);
+      window.removeEventListener('pointercancel', finish, true);
+      window.removeEventListener('blur', abort);
+    };
+  }, [busy]);
+
   // jendela berhenti interaktif di tengah gesture (Esc, expand, pindah fokus): akhiri tanpa menyimpan
   useEffect(() => {
     if (!interactive && !swipeable) end(false);
@@ -253,6 +278,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
+          onLostPointerCapture={onUp}
         >
           {swipeable && <span className="swipe-grabber" aria-hidden />}
           {mobile ? (
@@ -262,10 +288,10 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
           ) : (
             <div className="traffic" role="group" aria-label="Kontrol jendela">
               <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
-                <Icon name="close" size={11} />
+                <Icon name="close" size={10} />
               </button>
               <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
-                <Icon name="minus" size={11} />
+                <Icon name="minus" size={10} />
               </button>
               <button
                 type="button"
@@ -274,7 +300,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
                 title={expanded ? 'Perkecil' : 'Perluas'}
                 onClick={wm.toggleExpand}
               >
-                <Icon name={expanded ? 'shrink' : 'expand'} size={11} />
+                <Icon name={expanded ? 'shrink' : 'expand'} size={10} />
               </button>
             </div>
           )}
@@ -376,6 +402,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
+            onLostPointerCapture={onUp}
           >
             {ARC[edge] && (
               <svg className="rz-arc" viewBox="0 0 36 36">
