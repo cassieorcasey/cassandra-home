@@ -294,29 +294,36 @@ body {
     transform 240ms var(--ease-tile),
     box-shadow 240ms ease;
 }
-.app-tile svg {
+/* ikon asli tanpa latar; --mark menyetarakan bobot optis (bentuk padat lebih kecil, bentuk tipis lebih besar) */
+.app-tile img {
   display: block;
-  width: calc(var(--tile) * 0.4375);
-  height: calc(var(--tile) * 0.4375);
+  width: calc(var(--tile) * var(--mark, 0.56));
+  height: calc(var(--tile) * var(--mark, 0.56));
+  filter: drop-shadow(0 1px 1.5px rgba(74, 63, 66, 0.12));
 }
 /* opasitas ujung gradasi dibedakan untuk menyamakan bobot: swatch gelap lebih tipis, swatch terang lebih tebal */
 .app-tile[data-app='lemma'] {
+  --mark: 0.6;
   --tile-tint: rgba(183, 167, 170, 0.48);
   --tile-glow: rgba(183, 167, 170, 0.32);
 }
 .app-tile[data-app='synthesis'] {
+  --mark: 0.52;
   --tile-tint: rgba(228, 212, 223, 0.62);
   --tile-glow: rgba(228, 212, 223, 0.42);
 }
 .app-tile[data-app='conway'] {
+  --mark: 0.58;
   --tile-tint: rgba(201, 211, 224, 0.58);
   --tile-glow: rgba(201, 211, 224, 0.4);
 }
 .app-tile[data-app='subset'] {
+  --mark: 0.54;
   --tile-tint: rgba(212, 253, 235, 0.65);
   --tile-glow: rgba(212, 253, 235, 0.45);
 }
 .app-tile[data-app='wishy'] {
+  --mark: 0.6;
   --tile-tint: rgba(239, 221, 234, 0.62);
   --tile-glow: rgba(239, 221, 234, 0.42);
 }
@@ -335,7 +342,6 @@ body {
 @media (forced-colors: active) {
   .app-tile {
     border-color: CanvasText;
-    color: CanvasText;
   }
 }
 @media (prefers-reduced-motion: reduce) {
