@@ -49,14 +49,12 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
           <RotatingGreeting paused={hidden} reduced={reduced} />
         </p>
 
-        <h1 className="title" aria-label="cassandra.home">
+        <h1 className="title">
           <span className="title-word">
-            <Split text="cassandra" />
+            <span className="title-ink">cassandra</span>
             <Squiggle reduced={reduced} />
           </span>
-          <span className="title-suffix">
-            <Split text=".home" delay={160 + 9 * 55} />
-          </span>
+          <span className="title-suffix">.home</span>
         </h1>
 
         <p className="prompt" lang="en">
