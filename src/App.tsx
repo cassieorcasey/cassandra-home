@@ -4,10 +4,8 @@ import { UnifiedBottomBar } from './components/bottom-bar/UnifiedBottomBar';
 import { Launchpad } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
-import { TopBar } from './components/os/TopBar';
 import { FlightLayer } from './components/stage/FlightLayer';
 import { apps } from './config/apps.config';
-import { useTheme } from './hooks/useTheme';
 import { deckSlot, stageRect, STRIP_RESERVED, useViewport } from './hooks/useViewport';
 import { lifecycleOf, useWindowManager, type WindowActions } from './hooks/useWindowManager';
 import type { AppId, Rect, WindowLifecycle } from './types/os';
@@ -15,7 +13,6 @@ import type { AppId, Rect, WindowLifecycle } from './types/os';
 export default function App() {
   const wm = useWindowManager();
   const { state } = wm;
-  const theme = useTheme();
   const vp = useViewport();
   const reduced = !!useReducedMotion();
   const [spotlight, setSpotlight] = useState(false);
@@ -106,15 +103,9 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <LayoutGroup id="cassandra-os">
         <div className="wallpaper" aria-hidden />
+        <div id="safe-probe-top" aria-hidden />
         <div id="safe-probe" aria-hidden />
 
-        <TopBar
-          openCount={state.wins.length}
-          theme={theme.pref}
-          onCycleTheme={theme.cycle}
-          onSpotlight={() => setSpotlight(true)}
-          onHome={minimize}
-        />
 
         <Launchpad
           hidden={hasActive}

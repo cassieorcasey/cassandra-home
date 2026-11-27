@@ -26,40 +26,6 @@
   color-scheme: light;
 }
 
-:root[data-theme='dark'] {
-  --ink: #f7f3f6;
-  --ink-2: #b7a7aa; /* 7.80:1 di #18161b */
-  --signal: #7fe3b5;
-  --surface: #231f28;
-  --glass-bg: rgba(35, 31, 40, 0.66);
-  --glass-border: rgba(228, 212, 223, 0.16);
-  --card-border: rgba(228, 212, 223, 0.28);
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
-  --wall-a: rgba(201, 211, 224, 0.12);
-  --wall-b: rgba(212, 253, 235, 0.08);
-  --wall-base: linear-gradient(180deg, #18161b 0%, #1e1a22 60%, #231f28 100%);
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --ink: #f7f3f6;
-    --ink-2: #b7a7aa;
-    --signal: #7fe3b5;
-    --surface: #231f28;
-    --glass-bg: rgba(35, 31, 40, 0.66);
-    --glass-border: rgba(228, 212, 223, 0.16);
-    --card-border: rgba(228, 212, 223, 0.28);
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
-    --wall-a: rgba(201, 211, 224, 0.12);
-    --wall-b: rgba(212, 253, 235, 0.08);
-    --wall-base: linear-gradient(180deg, #18161b 0%, #1e1a22 60%, #231f28 100%);
-    color-scheme: dark;
-  }
-}
-
 /* ============ Base ============ */
 *,
 *::before,
@@ -102,6 +68,13 @@ button {
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+}
+#safe-probe-top {
+  position: fixed;
+  top: 0;
+  height: env(safe-area-inset-top, 0px);
+  width: 0;
+  pointer-events: none;
 }
 #safe-probe {
   position: fixed;
@@ -163,53 +136,7 @@ button {
   }
 }
 
-/* ============ TopBar ============ */
-.topbar {
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 52px;
-  padding: 0 12px 0 16px;
-  padding-top: env(safe-area-inset-top, 0px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 50;
-  border-width: 0 0 1px 0;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 15px;
-  min-height: 44px;
-}
-.brand-mark {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--periwinkle), var(--mint));
-  border: 1px solid var(--card-border);
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.tab-badge {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 13px;
-  background: var(--mint);
-  color: #2b252c;
-  border: 1px solid var(--ink-2);
-  font-size: 13px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  margin-right: 4px;
-}
+/* ============ Tombol header jendela ============ */
 .hdr-btn {
   width: 44px;
   height: 44px;
@@ -223,29 +150,11 @@ button {
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--ink);
 }
-.search-btn {
-  height: 36px;
-  min-width: 44px;
-  padding: 0 10px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-2);
-  border: 1px solid var(--glass-border);
-}
-.search-btn:hover {
-  color: var(--ink);
-}
-kbd {
-  font-family: var(--font-ui);
-  font-size: 12px;
-}
-
 /* ============ Launchpad ============ */
 .launchpad {
   position: fixed;
-  inset: 52px 0 0 0;
+  inset: 0;
+  padding-top: env(safe-area-inset-top, 0px);
   overflow-y: auto;
   z-index: 10;
   padding-bottom: 120px;
@@ -253,7 +162,7 @@ kbd {
 }
 /* Hero terpusat (tata letak mengikuti referensi): sapaan, judul + ombak, ajakan, kartu aplikasi */
 .hero {
-  min-height: calc(100svh - 52px - 120px);
+  min-height: calc(100svh - 120px);
   max-width: 860px;
   margin-inline: auto;
   padding: clamp(32px, 7vh, 72px) 24px 24px;
@@ -311,16 +220,6 @@ kbd {
 :root {
   --squiggle-a: #566b80;
   --squiggle-b: #3a755e;
-}
-:root[data-theme='dark'] {
-  --squiggle-a: #c9d3e0;
-  --squiggle-b: #d4fdeb;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --squiggle-a: #c9d3e0;
-    --squiggle-b: #d4fdeb;
-  }
 }
 /* ombak mengalir satu periode (72 satuan viewBox) per 2,4 detik; berhenti saat jendela terbuka */
 .squiggle-flow {
@@ -682,9 +581,6 @@ kbd {
 .window-menu .danger {
   color: #b42318;
 }
-:root[data-theme='dark'] .window-menu .danger {
-  color: #ff8a80;
-}
 .preview-card {
   height: 100%;
   display: flex;
@@ -806,9 +702,6 @@ kbd {
 
 /* ============ Responsif ============ */
 @media (max-width: 767px) {
-  .desktop-only {
-    display: none;
-  }
   .launchpad {
     padding-left: 0 !important;
     padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px));
