@@ -29,16 +29,22 @@ interface Props {
 
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
 
-const EDGES: ResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+/** Tepi atas sengaja tanpa pegangan: header-lah pegangan geser (pola referensi). */
+const EDGES: ResizeEdge[] = ['e', 'w', 's', 'se', 'sw'];
+/** Busur seperempat lingkaran untuk pegangan sudut bawah (viewBox 36). */
+const ARC: Partial<Record<ResizeEdge, string>> = {
+  se: 'M 6 30 A 24 24 0 0 0 30 6',
+  sw: 'M 30 30 A 24 24 0 0 1 6 6',
+};
 const CURSOR: Record<ResizeEdge, string> = {
   n: 'ns-resize',
   s: 'ns-resize',
   e: 'ew-resize',
   w: 'ew-resize',
   ne: 'nesw-resize',
-  sw: 'nesw-resize',
+  sw: 'sw-resize',
   nw: 'nwse-resize',
-  se: 'nwse-resize',
+  se: 'se-resize',
 };
 /** Target di header yang tetap berfungsi sebagai tombol, bukan pegangan geser. */
 const NO_DRAG = '.traffic, .hdr-actions, button, a';
@@ -77,7 +83,8 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
 
   // ---- geometri sementara: lokal di sini selama gesture, dikirim ke window manager sekali di akhir
   const [live, setLive] = useState<Rect | null>(null);
-  const [busy, setBusy] = useState(false);
+  /** Gesture yang sedang berjalan (null = tidak ada); dipakai untuk kelas tampilan. */
+  const [busy, setBusy] = useState<Gesture['kind'] | null>(null);
   const gesture = useRef<Gesture | null>(null);
   const liveRef = useRef<Rect | null>(null);
 
@@ -109,8 +116,8 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
       v: 0,
     };
     liveRef.current = null;
-    setBusy(true);
-    setGlobalLock(kind === 'move' || kind === 'swipe' ? 'default' : CURSOR[kind]);
+    setBusy(kind);
+    setGlobalLock(kind === 'move' ? 'grabbing' : kind === 'swipe' ? 'default' : CURSOR[kind]);
   };
 
   const onMove = (e: ReactPointerEvent<HTMLElement>) => {
@@ -169,7 +176,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
       }
     } else if (commit && final) wm.setRect(win.id, final);
     setLive(null);
-    setBusy(false);
+    setBusy(null);
     setGlobalLock(null);
   };
 
@@ -362,14 +369,20 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
         EDGES.map((edge) => (
           <span
             key={edge}
-            className={`rz rz-${edge}`}
+            className={`rz rz-${edge} ${busy === edge ? 'is-held' : ''}`}
             aria-hidden
             style={{ cursor: CURSOR[edge] }}
             onPointerDown={(e) => begin(e, edge)}
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
-          />
+          >
+            {ARC[edge] && (
+              <svg className="rz-arc" viewBox="0 0 36 36">
+                <path d={ARC[edge]} stroke="currentColor" strokeWidth={5} strokeLinecap="round" fill="none" />
+              </svg>
+            )}
+          </span>
         ))}
 
       {placement === 'deck' && (
