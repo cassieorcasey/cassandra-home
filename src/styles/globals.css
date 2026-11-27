@@ -389,299 +389,93 @@ body {
 }
 .quick-apps-grid {
   width: 100%;
+  max-width: 760px;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center; /* baris terakhir yang tidak penuh tetap di tengah */
-  --card-gap: 20px;
-  gap: var(--card-gap);
-}
-.quick-apps-grid > .app-card {
-  flex: 0 1 calc((100% - 2 * var(--card-gap)) / 3);
-  min-width: 0;
-}
-@media (max-width: 959px) {
-  .quick-apps-grid > .app-card {
-    flex-basis: calc((100% - var(--card-gap)) / 2);
-  }
+  justify-content: center; /* baris yang tidak penuh tetap di tengah */
+  gap: 22px 26px;
 }
 
-/* ---- kartu SPACES berbentuk objek: kaca bertopeng kontur + SVG kontur + konten di zona aman ---- */
+/* ---- kartu SPACES sederhana: kotak bersudut bulat berisi ikon, nama di bawahnya ---- */
 .app-card {
-  position: relative;
-  display: block;
-  aspect-ratio: 320 / 148; /* = kanvas SVG: skala selalu seragam */
-  container-type: inline-size;
+  --face: 124px;
+  width: var(--face);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   padding: 0;
   border: 0;
   background: none;
-  text-align: left;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 260ms var(--ease-tile);
 }
 .app-card:focus-visible {
   outline: none;
 }
-.card-glass,
-.card-sheen,
-.card-shape {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.card-sheen {
-  overflow: hidden;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-/* blur latar hanya di dalam kontur (mask-image dari path yang sama), tidak ada kotak di sudut terpotong */
-.card-glass {
-  overflow: hidden;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-.card-shape {
-  overflow: visible;
-  filter: drop-shadow(0 12px 28px rgba(45, 42, 62, 0.06));
-}
-.card-fill {
-  fill: rgba(255, 255, 255, 0.55);
-  stroke: rgba(183, 167, 170, 0.32);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-  transition:
-    fill 200ms ease,
-    stroke 200ms ease;
-}
-.app-card:hover .card-fill {
-  fill: rgba(255, 255, 255, 0.72);
-}
-.app-card:focus-visible .card-fill {
-  stroke: var(--signal);
-  stroke-width: 2.5;
-}
-/* konten: padding dalam satuan kanvas → cqw, jadi zona aman ikut menyusut bersama siluet */
-.app-card-body {
+.app-card-face {
   position: relative;
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: calc(var(--pt) / 320 * 100cqw) calc(var(--pr) / 320 * 100cqw) calc(var(--pb) / 320 * 100cqw)
-    calc(var(--pl) / 320 * 100cqw);
-}
-
-/* Lemma: naik 4 px, lipatan sudut melebar dari engselnya */
-.card-flap {
-  transform-box: fill-box;
-  transform-origin: 0% 100%;
-  filter: drop-shadow(-1px 2px 2px rgba(74, 63, 66, 0.12));
-  transition: transform 320ms var(--ease-tile);
-}
-[data-shape='lemma']:hover {
-  transform: translateY(-4px);
-}
-[data-shape='lemma']:hover .card-flap {
-  transform: scale(1.14);
-}
-
-/* Synthesis: titik konektor menyala oranye-biru dan berdenyut */
-.syn-dot {
-  fill: #fcfbfd;
-  stroke: var(--ink-3);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
+  width: var(--face);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background: var(--surface-card);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 10px 26px -10px var(--shadow-mauve);
   transition:
-    fill 200ms ease,
-    stroke 200ms ease;
+    transform 180ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0, 0, 1);
 }
-.syn-ring {
-  fill: none;
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
+.app-card:hover .app-card-face {
+  transform: scale(1.025);
+  box-shadow: 0 18px 38px -12px var(--shadow-mauve);
 }
-.syn-l {
-  --c: #e2602f;
+.app-card:active .app-card-face {
+  transform: scale(0.96);
 }
-.syn-r {
-  --c: #4f78b8;
-}
-[data-shape='synthesis']:hover .syn-dot,
-[data-shape='synthesis']:focus-visible .syn-dot {
-  fill: var(--c);
-  stroke: var(--c);
-}
-[data-shape='synthesis']:hover .syn-ring,
-[data-shape='synthesis']:focus-visible .syn-ring {
-  stroke: var(--c);
-  animation: syn-pulse 1.6s ease-out infinite;
-}
-[data-shape='synthesis']:hover .syn-r {
-  animation-delay: 0.4s;
-}
-@keyframes syn-pulse {
-  from {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(2.8);
-  }
-}
-
-/* Conway: kilau miring naik mengikuti tangga, dari kiri bawah ke kanan atas */
-.card-shimmer {
-  position: absolute;
-  inset: -40% -60%;
-  background: linear-gradient(
-    60deg,
-    transparent 43%,
-    rgba(201, 211, 224, 0.75) 47.5%,
-    rgba(190, 236, 216, 0.8) 50%,
-    rgba(201, 211, 224, 0.75) 52.5%,
-    transparent 57%
-  );
-  transform: translate(-45%, 30%);
-  opacity: 0;
-  mix-blend-mode: multiply; /* warna kilau terlihat di atas kaca putih */
-}
-[data-shape='conway']:hover .card-shimmer {
-  animation: shimmer-up 1.2s cubic-bezier(0.45, 0, 0.25, 1) forwards;
-}
-@keyframes shimmer-up {
-  from {
-    opacity: 1;
-    transform: translate(-45%, 30%);
-  }
-  to {
-    opacity: 1;
-    transform: translate(45%, -30%);
-  }
-}
-
-/* Subset: tutup amplop terangkat sedikit */
-.env-flap {
-  transition: transform 300ms var(--ease-tile);
-}
-.env-fold {
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  opacity: 0.9;
-}
-[data-shape='subset']:hover .env-flap {
-  transform: translateY(-4px);
-}
-
-/* Wishy: berayun dengan poros di pusat lubang tali */
-[data-shape='wishy'] {
-  transform-origin: var(--eye-x) var(--eye-y);
-  transition: transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
-}
-[data-shape='wishy']:hover {
-  transform: rotate(-1.5deg);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .card-glass {
-    display: none;
-  }
-  .card-fill {
-    fill: #fff;
-  }
-}
-@media (forced-colors: active) {
-  .card-fill {
-    stroke: CanvasText;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app-card,
-  .card-flap,
-  .env-flap {
-    transition: none;
-  }
-  [data-shape]:hover {
-    transform: none;
-  }
-  [data-shape]:hover .card-flap,
-  [data-shape]:hover .env-flap {
-    transform: none;
-  }
-  .syn-ring,
-  .card-shimmer {
-    animation: none !important;
-  }
+.app-card:focus-visible .app-card-face {
+  outline: 2px solid var(--brand-b);
+  outline-offset: 3px;
 }
 .app-card-icon {
-  position: relative;
-  flex: none;
-  display: block;
+  display: grid;
 }
+/* titik "sedang berjalan" di pojok kanan atas kotak */
 .app-card-dot {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 10px;
-  height: 10px;
+  top: 12px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--signal);
-  border: 2px solid var(--surface);
-}
-.app-card-meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  box-shadow: 0 0 0 2px var(--surface);
 }
 .app-card-title {
   font-family: var(--font-body);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.25;
-  color: var(--ink-primary);
+  line-height: 1.2;
+  color: var(--ink-primary, var(--ink));
+  text-align: center;
 }
-.app-card-sub {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--ink-secondary);
+@media (prefers-reduced-transparency: reduce) {
+  .app-card-face {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #fcfbfd;
+  }
 }
-.app-card-arrow {
-  flex: none;
-  display: grid;
-  color: var(--signal);
-  opacity: 0.75;
-  transition:
-    transform 180ms cubic-bezier(0.2, 0, 0, 1),
-    opacity 180ms cubic-bezier(0.2, 0, 0, 1);
-}
-.app-card:hover .app-tile,
-.app-card:focus-visible .app-tile {
-  transform: translateY(-2px);
-  box-shadow:
-    0 12px 26px -6px var(--tile-glow),
-    inset 0 1px 1px rgba(255, 255, 255, 0.9);
-}
-.app-card:hover .app-card-arrow {
-  transform: translate(2px, -2px);
-  opacity: 1;
+@media (forced-colors: active) {
+  .app-card-face {
+    border-color: ButtonText;
+  }
+  .app-card:focus-visible .app-card-face {
+    outline-color: Highlight;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -690,9 +484,12 @@ body {
   .ch {
     animation: none;
   }
-  .app-card,
-  .app-card-arrow {
+  .app-card-face {
     transition: none;
+  }
+  .app-card:hover .app-card-face,
+  .app-card:active .app-card-face {
+    transform: none;
   }
 }
 
@@ -1172,10 +969,23 @@ html[data-wm-interacting] * {
     white-space: nowrap;
   }
 }
-/* satu kolom di bawah 640 px; lebar maks 24rem (setara max-w-sm) agar siluet tidak terlalu melar */
+/* ponsel: kotak lebih kecil, tiga per baris (sisa di tengah) */
 @media (max-width: 639px) {
-  .quick-apps-grid > .app-card {
-    flex-basis: 100%;
-    max-width: 24rem;
+  .quick-apps-grid {
+    gap: 18px 16px;
+  }
+  .app-card {
+    --face: 100px;
+    gap: 8px;
+  }
+  .app-card-face {
+    border-radius: 24px;
+  }
+  .app-card .app-tile {
+    --tile: 56px !important;
+  }
+  .app-card-title {
+    font-size: 14px;
   }
 }
+
