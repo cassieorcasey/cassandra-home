@@ -1,10 +1,9 @@
 import { motion } from 'motion/react';
 import { apps } from '../../config/apps.config';
 import type { Rect } from '../../hooks/useWindowManager';
-import { Icon } from '../ui/Icon';
 import { RotatingGreeting } from '../ui/RotatingGreeting';
 import { Squiggle } from '../ui/Squiggle';
-import { AppTile } from '../ui/AppTile';
+import { SpaceCard } from './SpaceCard';
 
 interface Props {
   hidden: boolean;
@@ -93,29 +92,7 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
           </p>
           <div className="quick-apps-grid">
             {ordered.map((app, i) => (
-              <button
-                key={app.id}
-                type="button"
-                className="app-card enter"
-                style={{ '--d': `${460 + i * 60}ms` } as React.CSSProperties}
-                aria-label={`Open ${app.name}: ${app.tagline}`}
-                onClick={(e) => {
-                  const r = e.currentTarget.querySelector('.app-card-icon')!.getBoundingClientRect();
-                  onLaunch(app.id, { x: r.left, y: r.top, w: r.width, h: r.height });
-                }}
-              >
-                <span className="app-card-icon" data-launch={`grid-${app.id}`}>
-                  <AppTile id={app.id} size={64} />
-                  {running.has(app.id) && <span className="app-card-dot" aria-hidden />}
-                </span>
-                <span className="app-card-meta">
-                  <span className="app-card-title">{app.name}</span>
-                  <span className="app-card-sub">{app.tagline}</span>
-                </span>
-                <span className="app-card-arrow" aria-hidden>
-                  <Icon name="arrowUpRight" size={18} />
-                </span>
-              </button>
+              <SpaceCard key={app.id} app={app} index={i} running={running.has(app.id)} onLaunch={onLaunch} />
             ))}
           </div>
         </section>

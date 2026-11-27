@@ -398,35 +398,233 @@ body {
   flex: 0 1 calc((100% - 24px) / 3);
   min-width: 0;
 }
+@media (max-width: 959px) {
+  .quick-apps-grid > .app-card {
+    flex-basis: calc((100% - 12px) / 2);
+  }
+}
+
+/* ---- kartu SPACES berbentuk objek: kaca bertopeng kontur + SVG kontur + konten di zona aman ---- */
 .app-card {
   position: relative;
+  display: block;
+  aspect-ratio: 320 / 148; /* = kanvas SVG: skala selalu seragam */
+  container-type: inline-size;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 260ms var(--ease-tile);
+}
+.app-card:focus-visible {
+  outline: none;
+}
+.card-glass,
+.card-sheen,
+.card-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.card-sheen {
+  overflow: hidden;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+/* blur latar hanya di dalam kontur (mask-image dari path yang sama), tidak ada kotak di sudut terpotong */
+.card-glass {
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.card-shape {
+  overflow: visible;
+  filter: drop-shadow(0 12px 28px rgba(45, 42, 62, 0.06));
+}
+.card-fill {
+  fill: rgba(255, 255, 255, 0.55);
+  stroke: rgba(183, 167, 170, 0.32);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition:
+    fill 200ms ease,
+    stroke 200ms ease;
+}
+.app-card:hover .card-fill {
+  fill: rgba(255, 255, 255, 0.72);
+}
+.app-card:focus-visible .card-fill {
+  stroke: var(--signal);
+  stroke-width: 2.5;
+}
+/* konten: padding dalam satuan kanvas → cqw, jadi zona aman ikut menyusut bersama siluet */
+.app-card-body {
+  position: relative;
+  z-index: 1;
+  height: 100%;
   display: flex;
   align-items: center;
   gap: 13px;
-  min-height: 72px;
-  padding: 13px 15px;
-  border-radius: 20px;
-  text-align: left;
-  background: var(--surface-card);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-mauve);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  padding: calc(var(--pt) / 320 * 100cqw) calc(var(--pr) / 320 * 100cqw) calc(var(--pb) / 320 * 100cqw)
+    calc(var(--pl) / 320 * 100cqw);
+}
+
+/* Lemma: naik 4 px, lipatan sudut melebar dari engselnya */
+.card-flap {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  filter: drop-shadow(-1px 2px 2px rgba(74, 63, 66, 0.12));
+  transition: transform 320ms var(--ease-tile);
+}
+[data-shape='lemma']:hover {
+  transform: translateY(-4px);
+}
+[data-shape='lemma']:hover .card-flap {
+  transform: scale(1.14);
+}
+
+/* Synthesis: titik konektor menyala oranye-biru dan berdenyut */
+.syn-dot {
+  fill: #fcfbfd;
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
   transition:
-    transform 200ms cubic-bezier(0.2, 0, 0, 1),
-    background 180ms cubic-bezier(0.2, 0, 0, 1);
+    fill 200ms ease,
+    stroke 200ms ease;
 }
-.app-card:hover {
-  transform: translateY(-2px);
-  background: color-mix(in srgb, var(--ink) 5%, var(--surface-card));
+.syn-ring {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
 }
-.app-card:active {
-  transform: scale(0.98);
+.syn-l {
+  --c: #e2602f;
 }
-.app-card:focus-visible {
-  outline: 3px solid var(--signal);
-  outline-offset: 2px;
-  border-radius: 20px;
+.syn-r {
+  --c: #4f78b8;
+}
+[data-shape='synthesis']:hover .syn-dot,
+[data-shape='synthesis']:focus-visible .syn-dot {
+  fill: var(--c);
+  stroke: var(--c);
+}
+[data-shape='synthesis']:hover .syn-ring,
+[data-shape='synthesis']:focus-visible .syn-ring {
+  stroke: var(--c);
+  animation: syn-pulse 1.6s ease-out infinite;
+}
+[data-shape='synthesis']:hover .syn-r {
+  animation-delay: 0.4s;
+}
+@keyframes syn-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+/* Conway: kilau miring naik mengikuti tangga, dari kiri bawah ke kanan atas */
+.card-shimmer {
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(
+    60deg,
+    transparent 43%,
+    rgba(201, 211, 224, 0.75) 47.5%,
+    rgba(190, 236, 216, 0.8) 50%,
+    rgba(201, 211, 224, 0.75) 52.5%,
+    transparent 57%
+  );
+  transform: translate(-45%, 30%);
+  opacity: 0;
+  mix-blend-mode: multiply; /* warna kilau terlihat di atas kaca putih */
+}
+[data-shape='conway']:hover .card-shimmer {
+  animation: shimmer-up 1.2s cubic-bezier(0.45, 0, 0.25, 1) forwards;
+}
+@keyframes shimmer-up {
+  from {
+    opacity: 1;
+    transform: translate(-45%, 30%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(45%, -30%);
+  }
+}
+
+/* Subset: tutup amplop terangkat sedikit */
+.env-flap {
+  transition: transform 300ms var(--ease-tile);
+}
+.env-fold {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.9;
+}
+[data-shape='subset']:hover .env-flap {
+  transform: translateY(-4px);
+}
+
+/* Wishy: berayun dengan poros di pusat lubang tali */
+[data-shape='wishy'] {
+  transform-origin: var(--eye-x) var(--eye-y);
+  transition: transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+[data-shape='wishy']:hover {
+  transform: rotate(-1.5deg);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .card-glass {
+    display: none;
+  }
+  .card-fill {
+    fill: #fff;
+  }
+}
+@media (forced-colors: active) {
+  .card-fill {
+    stroke: CanvasText;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-card,
+  .card-flap,
+  .env-flap {
+    transition: none;
+  }
+  [data-shape]:hover {
+    transform: none;
+  }
+  [data-shape]:hover .card-flap,
+  [data-shape]:hover .env-flap {
+    transform: none;
+  }
+  .syn-ring,
+  .card-shimmer {
+    animation: none !important;
+  }
 }
 .app-card-icon {
   position: relative;
@@ -811,7 +1009,11 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+/* satu kolom di bawah 640 px; lebar maks 24rem (setara max-w-sm) agar siluet tidak terlalu melar */
+@media (max-width: 639px) {
   .quick-apps-grid > .app-card {
     flex-basis: 100%;
+    max-width: 24rem;
   }
 }
