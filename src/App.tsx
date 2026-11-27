@@ -1,21 +1,16 @@
-import { AnimatePresence, useReducedMotion } from 'motion/react';
-import { useCallback, useEffect, useState } from 'react';
-import { Dock } from './components/os/Dock';
+import { AnimatePresence, LayoutGroup, MotionConfig, useReducedMotion } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { UnifiedBottomBar } from './components/bottom-bar/UnifiedBottomBar';
 import { Launchpad } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
-import { MobileTabBar } from './components/os/TabDeck';
 import { TopBar } from './components/os/TopBar';
+import { FlightLayer } from './components/stage/FlightLayer';
+import { apps } from './config/apps.config';
 import { useTheme } from './hooks/useTheme';
 import { deckSlot, stageRect, STRIP_RESERVED, useViewport } from './hooks/useViewport';
-import { useWindowManager, type Rect } from './hooks/useWindowManager';
-
-function iconRect(id: string, fallback: Rect): Rect {
-  const el = document.querySelector(`[data-launch="grid-${id}"]`);
-  if (!el) return fallback;
-  const r = el.getBoundingClientRect();
-  return { x: r.left, y: r.top, w: r.width, h: r.height };
-}
+import { lifecycleOf, useWindowManager, type WindowActions } from './hooks/useWindowManager';
+import type { AppId, Rect, WindowLifecycle } from './types/os';
 
 export default function App() {
   const wm = useWindowManager();
@@ -25,12 +20,58 @@ export default function App() {
   const reduced = !!useReducedMotion();
   const [spotlight, setSpotlight] = useState(false);
 
-  const running = new Set(state.apps.map((a) => a.id));
+  const running = new Set(state.wins.map((w) => w.id));
   const hasActive = state.activeId !== null;
 
   useEffect(() => {
     document.documentElement.toggleAttribute('data-window-open', hasActive);
   }, [hasActive]);
+
+  // ---- slot dok sebagai titik pendaratan penerbangan
+  const slots = useRef(new Map<AppId, () => Rect>());
+  const registerSlot = useCallback((id: AppId, measure: () => Rect) => {
+    slots.current.set(id, measure);
+    return () => {
+      if (slots.current.get(id) === measure) slots.current.delete(id);
+    };
+  }, []);
+  const slotRect = (id: AppId) => (state.expanded ? null : (slots.current.get(id)?.() ?? null));
+
+  const stage = stageRect(vp, state.expanded);
+  const normalStage = stageRect(vp, false);
+  const fly = (from: Rect | null, to: Rect | null) => (reduced || !from || !to ? null : { from, to });
+
+  const launch = (id: AppId, origin: Rect | null) => {
+    const target = stageRect(vp, state.expanded);
+    if (state.activeId === id) return;
+    wm.launch(id, fly(origin, target));
+  };
+  const minimize = () => {
+    const id = state.activeId;
+    if (!id) return;
+    wm.minimize(fly(stage, slotRect(id)));
+    // fokus kembali ke ikon aplikasi itu di dok, bukan hilang ke <body>
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLButtonElement>(`.ubb [data-dock-id="${id}"]`)?.focus({ preventScroll: true }),
+    );
+  };
+  const close = (id: AppId) => wm.close(id, state.activeId === id ? fly(stage, slotRect(id)) : null);
+
+  /** Aplikasi yang sedang di Side Stage Strip cukup ditukar; selain itu terbang dari ikon dok. */
+  const onDockLaunch = (id: AppId, origin: Rect) => {
+    const inStrip = !vp.mobile && !state.expanded && state.deck.includes(id) && !state.wins.find((w) => w.id === id)?.minimized;
+    if (inStrip) wm.focus(id);
+    else launch(id, origin);
+  };
+
+  const actions: WindowActions = {
+    close,
+    minimize,
+    focus: wm.focus,
+    refresh: wm.refresh,
+    toggleExpand: wm.toggleExpand,
+    markReady: wm.markReady,
+  };
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
@@ -41,10 +82,11 @@ export default function App() {
       }
       if (e.key === 'Escape') {
         if (spotlight) setSpotlight(false);
-        else wm.minimize(); // Esc tidak pernah menutup sesi
+        else minimize(); // Esc tidak pernah menutup sesi
       }
     },
-    [spotlight, wm],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [spotlight, state.activeId, state.expanded, vp, reduced],
   );
 
   useEffect(() => {
@@ -52,85 +94,99 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [onKey]);
 
-  const stage = stageRect(vp, state.expanded);
-  const normalStage = stageRect(vp, false);
-  const centerFallback: Rect = { x: vp.w / 2 - 36, y: vp.h / 2 - 36, w: 72, h: 72 };
+  const lifecycles = useMemo(
+    () => Object.fromEntries(apps.map((a) => [a.id, lifecycleOf(state, a.id)])) as Record<AppId, WindowLifecycle>,
+    [state],
+  );
 
   const deckOnDesktop = !vp.mobile && state.deck.length > 0;
+  const flying = state.flight?.direction === 'open' ? state.flight.id : null;
 
   return (
-    <>
-      <div className="wallpaper" aria-hidden />
-      <div id="safe-probe" aria-hidden />
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup id="cassandra-os">
+        <div className="wallpaper" aria-hidden />
+        <div id="safe-probe" aria-hidden />
 
-      <TopBar
-        openCount={state.apps.length}
-        theme={theme.pref}
-        onCycleTheme={theme.cycle}
-        onSpotlight={() => setSpotlight(true)}
-        onHome={wm.minimize}
-      />
+        <TopBar
+          openCount={state.wins.length}
+          theme={theme.pref}
+          onCycleTheme={theme.cycle}
+          onSpotlight={() => setSpotlight(true)}
+          onHome={minimize}
+        />
 
-      <Launchpad
-        hidden={hasActive}
-        padLeft={deckOnDesktop ? STRIP_RESERVED : 0}
-        running={running}
-        reduced={reduced}
-        onLaunch={(id, origin) => wm.open(id, origin)}
-      />
+        <Launchpad
+          hidden={hasActive}
+          padLeft={deckOnDesktop ? STRIP_RESERVED : 0}
+          running={running}
+          reduced={reduced}
+          onLaunch={(id, origin) => launch(id as AppId, origin)}
+        />
 
-      <AnimatePresence>
-        {state.apps.map((win) => {
-          const active = win.id === state.activeId;
-          const deckIndex = state.deck.indexOf(win.id);
-          let placement: Placement;
-          let target;
-          if (active) {
-            placement = 'stage';
-            target = { ...stage, scale: 1, opacity: 1 };
-          } else if (!vp.mobile && !state.expanded) {
-            placement = 'deck';
-            const slot = deckSlot(vp, deckIndex);
-            target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: deckIndex > 3 ? 0 : 1 };
-          } else {
-            placement = 'hidden';
-            target = { ...normalStage, y: normalStage.y + 20, scale: 0.96, opacity: 0 };
-          }
-          return (
-            <StageWindow
-              key={win.id}
-              win={win}
-              placement={placement}
-              target={target}
-              exitTo={iconRect(win.id, centerFallback)}
-              mobile={vp.mobile}
-              expanded={state.expanded}
+        <AnimatePresence>
+          {state.wins.map((win) => {
+            const active = win.id === state.activeId;
+            const deckIndex = state.deck.indexOf(win.id);
+            let placement: Placement;
+            let target;
+            if (active) {
+              placement = 'stage';
+              target = { ...stage, scale: 1, opacity: 1 };
+            } else if (!vp.mobile && !state.expanded && deckIndex !== -1 && !win.minimized) {
+              placement = 'deck';
+              const slot = deckSlot(vp, deckIndex);
+              target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: deckIndex > 3 ? 0 : 1 };
+            } else {
+              placement = 'hidden';
+              target = { ...normalStage, scale: 1, opacity: 0 };
+            }
+            return (
+              <StageWindow
+                key={win.id}
+                win={win}
+                placement={placement}
+                target={target}
+                revealed={flying !== win.id}
+                mobile={vp.mobile}
+                expanded={state.expanded}
+                reduced={reduced}
+                wm={actions}
+                onFrameKey={onKey}
+              />
+            );
+          })}
+        </AnimatePresence>
+
+        <UnifiedBottomBar
+          apps={apps}
+          lifecycles={lifecycles}
+          activeId={state.activeId}
+          bounce={state.bounce}
+          mobile={vp.mobile}
+          viewportWidth={vp.w}
+          hidden={state.expanded}
+          reduced={reduced}
+          onLaunch={onDockLaunch}
+          onHome={minimize}
+          registerSlot={registerSlot}
+        />
+
+        <FlightLayer flight={state.flight} onLanded={wm.landed} />
+
+        <AnimatePresence>
+          {spotlight && (
+            <SpotlightModal
               reduced={reduced}
-              wm={wm}
-              onFrameKey={onKey}
+              onClose={() => setSpotlight(false)}
+              onLaunch={(id) => {
+                setSpotlight(false);
+                launch(id as AppId, null);
+              }}
             />
-          );
-        })}
-      </AnimatePresence>
-
-      {vp.mobile ? (
-        <MobileTabBar wm={wm} />
-      ) : (
-        <Dock running={running} hidden={state.expanded} onHome={wm.minimize} onLaunch={(id, origin) => wm.open(id, origin)} />
-      )}
-
-      <AnimatePresence>
-        {spotlight && (
-          <SpotlightModal
-            reduced={reduced}
-            onClose={() => setSpotlight(false)}
-            onLaunch={(id) => {
-              setSpotlight(false);
-              wm.open(id, null);
-            }}
-          />
-        )}
-      </AnimatePresence>
-    </>
+          )}
+        </AnimatePresence>
+      </LayoutGroup>
+    </MotionConfig>
   );
 }

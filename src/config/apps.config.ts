@@ -1,13 +1,6 @@
-export interface CassandraApp {
-  id: string;
-  name: string;
-  tagline: string;
-  category: 'App' | 'Tool' | 'Social' | 'Experiment';
-  url: string;
-  embedMode: 'iframe' | 'preview-card';
-  icon: string;
-  featured?: boolean;
-}
+import type { AppId, CassandraApp } from '../types/os';
+
+export type { CassandraApp } from '../types/os';
 
 const base = 'https://cassieorcasey.github.io';
 
@@ -61,4 +54,4 @@ export const apps: CassandraApp[] = [
   },
 ];
 
-export const appById = (id: string) => apps.find((a) => a.id === id)!;
+export const appById = (id: AppId) => apps.find((a) => a.id === id)!;

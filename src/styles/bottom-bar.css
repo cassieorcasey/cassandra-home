@@ -1,0 +1,323 @@
+/* ============ Unified Bottom Bar — token Nebula Ore ============ */
+:root {
+  --ore-quartz: #b7a7aa;
+  --ore-lilac: #e4d4df;
+  --ore-nebula: #efddea;
+  --ore-periwinkle: #c9d3e0;
+  --ore-mint: #d4fdeb;
+
+  --dock-bg: rgba(252, 251, 253, 0.68);
+  --dock-bg-solid: rgba(252, 251, 253, 0.94);
+  --dock-border: rgba(183, 167, 170, 0.35);
+  --dock-shadow: 0 12px 36px -8px rgba(183, 167, 170, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  /* setiap titik ≥ 4,76:1 di atas dok terang */
+  --signature-gradient: linear-gradient(110deg, #5c5154 0%, #75656a 25%, #566b80 50%, #3a755e 75%, #5c5154 100%);
+  --dock-dot: #1f7a52;
+  --dock-ring: #1f7a52;
+  --dock-glow: rgba(212, 253, 235, 0.55);
+  --focus-ring: #1f7a52;
+  --tooltip-bg: #2b252c;
+  --tooltip-ink: #fcfbfd;
+}
+
+:root[data-theme='dark'] {
+  --dock-bg: rgba(24, 22, 27, 0.72);
+  --dock-bg-solid: rgba(24, 22, 27, 0.96);
+  --dock-border: rgba(228, 212, 223, 0.22);
+  --dock-shadow: 0 14px 40px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(212, 253, 235, 0.16);
+  --signature-gradient: linear-gradient(110deg, #efddea 0%, #c9d3e0 30%, #d4fdeb 55%, #e4d4df 80%, #efddea 100%);
+  --dock-dot: #d4fdeb;
+  --dock-ring: #7fe3b5;
+  --dock-glow: rgba(212, 253, 235, 0.22);
+  --focus-ring: #7fe3b5;
+  --tooltip-bg: #efddea;
+  --tooltip-ink: #2b252c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --dock-bg: rgba(24, 22, 27, 0.72);
+    --dock-bg-solid: rgba(24, 22, 27, 0.96);
+    --dock-border: rgba(228, 212, 223, 0.22);
+    --dock-shadow: 0 14px 40px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(212, 253, 235, 0.16);
+    --signature-gradient: linear-gradient(110deg, #efddea 0%, #c9d3e0 30%, #d4fdeb 55%, #e4d4df 80%, #efddea 100%);
+    --dock-dot: #d4fdeb;
+    --dock-ring: #7fe3b5;
+    --dock-glow: rgba(212, 253, 235, 0.22);
+    --focus-ring: #7fe3b5;
+    --tooltip-bg: #efddea;
+    --tooltip-ink: #2b252c;
+  }
+}
+
+/* ============ Wadah & bilah ============ */
+.ubb-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 40;
+  transition: transform 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+/* Mode Expand: bilah turun keluar layar. Hanya transform: opacity < 1 menjadikan bilah backdrop root. */
+.ubb-wrap.is-hidden {
+  transform: translateY(calc(100% + 40px));
+}
+
+.ubb {
+  position: relative;
+  isolation: isolate; /* stacking context tanpa containing block untuk fixed */
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 8px 10px;
+  border: 1px solid var(--dock-border);
+  box-shadow: var(--dock-shadow);
+  max-width: calc(100vw - 24px);
+}
+/* blur di pseudo-element: tooltip & turunan tidak terkurung oleh backdrop-filter */
+.ubb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dock-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ubb::before {
+    background: var(--dock-bg-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ubb::before {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+:root[data-perf='lite'] .ubb::before {
+  background: var(--dock-bg-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.ubb-row {
+  display: flex;
+  align-items: flex-end;
+  touch-action: pan-y; /* gulir vertikal tetap milik browser; scrub horizontal di JS */
+}
+
+/* ============ Marka Cassandra ============ */
+.ubb-brand {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 6px 0 8px;
+}
+.ubb-brand-text,
+.ubb-pill-text {
+  display: inline-block;
+  transform-origin: left center;
+}
+.sig {
+  display: inline-flex;
+  white-space: nowrap;
+  contain: layout paint;
+  padding: 4px 0; /* ruang untuk angkat 3px tanpa terpotong */
+}
+.sig-letters {
+  display: inline-flex;
+}
+.sig-slot {
+  display: inline-block;
+  text-align: center;
+  contain: layout;
+}
+.sig-glyph {
+  display: inline-block;
+  font-family: 'Unbounded', system-ui, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-variation-settings: 'wght' 600;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sig[data-ready] .sig-glyph {
+  background-image: var(--signature-gradient);
+  background-repeat: repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.ubb-pill {
+  position: relative;
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid var(--dock-border);
+  margin-bottom: 2px;
+}
+.ubb-pill:hover {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.ubb-pill.is-mono {
+  justify-content: center;
+  padding: 0;
+}
+.ubb-mono-c {
+  font-family: 'Unbounded', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--ink);
+}
+
+/* ============ Pemisah kaca ============ */
+.dock-divider {
+  flex: none;
+  width: 1px;
+  height: 28px;
+  margin: 0 10px 10px;
+  align-self: flex-end;
+  background: linear-gradient(180deg, transparent, var(--dock-border) 20%, var(--dock-border) 80%, transparent);
+}
+
+/* ============ Slot ikon ============ */
+.dock-slot {
+  position: relative;
+  flex: none;
+  display: block;
+}
+.dock-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+}
+.dock-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 22.5%;
+  overflow: hidden;
+  outline: 1px solid rgba(43, 37, 44, 0.08);
+  outline-offset: -1px;
+  box-shadow: 0 2px 8px rgba(43, 37, 44, 0.12);
+}
+@supports (corner-shape: squircle) {
+  .dock-face {
+    border-radius: 30%;
+    corner-shape: squircle;
+  }
+}
+.dock-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dock-face[data-active] {
+  box-shadow:
+    0 0 0 2px var(--dock-ring),
+    0 0 0 6px var(--dock-glow);
+}
+.dock-dot {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--dock-dot);
+}
+
+/* ============ Tooltip ============ */
+.dock-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px + var(--lift, 0px));
+  translate: -50% 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-ink);
+  font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(43, 37, 44, 0.22);
+}
+
+/* ============ Fokus keyboard ============ */
+.ubb button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 6px var(--dock-glow);
+}
+.ubb button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============ Penerbangan ikon ↔ jendela ============ */
+.flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.flight-shell {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-lg);
+}
+.flight-icon {
+  display: block;
+  border-radius: 22.5%;
+}
+
+/* ============ Layar sempit (< 768px) ============ */
+@media (max-width: 767px) {
+  .ubb {
+    gap: 6px;
+    padding: 8px;
+  }
+  .ubb.is-home {
+    flex-direction: column;
+    align-items: center;
+  }
+  .ubb.is-home .ubb-brand {
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .ubb.is-home .ubb-brand-text {
+    transform-origin: center;
+  }
+  .dock-divider {
+    height: 24px;
+    margin: 0 6px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ubb-wrap {
+    transition: none;
+  }
+}

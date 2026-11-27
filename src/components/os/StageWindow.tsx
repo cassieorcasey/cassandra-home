@@ -2,30 +2,31 @@ import { Icon } from '../ui/Icon';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { appById } from '../../config/apps.config';
-import type { OpenApp, Rect, WindowManager } from '../../hooks/useWindowManager';
+import type { Win, WindowActions } from '../../hooks/useWindowManager';
 
 export type Placement = 'stage' | 'deck' | 'hidden';
 
 interface Props {
-  win: OpenApp;
+  win: Win;
   placement: Placement;
   target: { x: number; y: number; w: number; h: number; scale: number; opacity: number };
-  exitTo: Rect;
+  /** false selama cangkang penerbangan masih menuju stage. */
+  revealed: boolean;
   mobile: boolean;
   expanded: boolean;
   reduced: boolean;
-  wm: WindowManager;
+  wm: WindowActions;
   onFrameKey: (e: KeyboardEvent) => void;
 }
 
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
 
-export function StageWindow({ win, placement, target, exitTo, mobile, expanded, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, target, revealed, mobile, expanded, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const active = placement === 'stage';
-  const loading = win.status === 'loading';
+  const loading = win.load === 'loading';
 
   useEffect(() => {
     if (!active) setMenuOpen(false);
@@ -43,24 +44,9 @@ export function StageWindow({ win, placement, target, exitTo, mobile, expanded, 
     }
   };
 
-  const o = win.origin;
-  const initial = reduced
-    ? { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: 1, scaleY: 1, opacity: 0 }
-    : o
-      ? { x: o.x, y: o.y, width: target.w, height: target.h, scaleX: o.w / target.w, scaleY: o.h / target.h, opacity: 0.7, borderRadius: 40 }
-      : { x: target.x, y: target.y + 24, width: target.w, height: target.h, scaleX: 0.94, scaleY: 0.94, opacity: 0 };
-
-  const exit = reduced
-    ? { opacity: 0, transition: { duration: 0.18 } }
-    : {
-        x: exitTo.x,
-        y: exitTo.y,
-        scaleX: exitTo.w / target.w,
-        scaleY: exitTo.h / target.h,
-        opacity: 0,
-        borderRadius: 40,
-        transition: { ...spring, opacity: { duration: 0.3, delay: 0.1 } },
-      };
+  const initial = { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: target.scale, scaleY: target.scale, opacity: 0 };
+  const exit = { opacity: 0, transition: { duration: reduced ? 0.18 : 0.08 } };
+  const shown = revealed ? target.opacity : 0;
 
   return (
     <motion.section
@@ -74,12 +60,12 @@ export function StageWindow({ win, placement, target, exitTo, mobile, expanded, 
         height: target.h,
         scaleX: target.scale,
         scaleY: target.scale,
-        opacity: target.opacity,
+        opacity: shown,
         borderRadius: mobile && active ? 0 : 18,
         transitionEnd: { visibility: placement === 'hidden' ? 'hidden' : 'visible' },
       }}
       exit={exit}
-      transition={reduced ? { duration: 0.2 } : spring}
+      transition={reduced ? { duration: 0.18 } : { ...spring, opacity: { duration: shown ? 0.14 : 0.08 } }}
       style={{ transformOrigin: '0 0', visibility: 'visible', zIndex: active ? 30 : 20 }}
     >
       <div className="window-inner" inert={!active}>
@@ -93,7 +79,7 @@ export function StageWindow({ win, placement, target, exitTo, mobile, expanded, 
               <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
                 <Icon name="close" size={11} />
               </button>
-              <button type="button" className="tl tl-min" aria-label="Minimize ke Deck" title="Minimize (Esc)" onClick={wm.minimize}>
+              <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
                 <Icon name="minus" size={11} />
               </button>
               <button
