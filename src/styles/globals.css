@@ -709,6 +709,10 @@ body {
 .stage-window.is-deck {
   box-shadow: var(--shadow);
 }
+/* jendela yang di-minimize tak terlihat (opacity 0) tapi masih menutupi Home: jangan tangkap klik/scroll */
+.stage-window.is-hidden {
+  pointer-events: none;
+}
 .window-inner {
   display: flex;
   flex-direction: column;

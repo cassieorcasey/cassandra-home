@@ -51,8 +51,10 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
 
   return (
     <motion.section
-      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'deck' ? 'is-deck' : ''}`}
+      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'deck' ? 'is-deck' : ''} ${placement === 'hidden' ? 'is-hidden' : ''}`}
       aria-label={app.name}
+      aria-hidden={placement === 'hidden' || undefined}
+      inert={placement === 'hidden'}
       initial={initial}
       animate={{
         x: target.x,
@@ -67,7 +69,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
       }}
       exit={exit}
       transition={reduced ? { duration: 0.18 } : { ...spring, opacity: { duration: shown ? 0.14 : 0.08 } }}
-      style={{ transformOrigin: '0 0', visibility: 'visible', zIndex: active ? 30 : 20 }}
+      style={{ transformOrigin: '0 0', zIndex: active ? 30 : 20 }}
     >
       <div className="window-inner" inert={!active}>
         <header className="window-header">
