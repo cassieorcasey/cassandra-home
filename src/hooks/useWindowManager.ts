@@ -8,6 +8,9 @@ export interface Win {
   load: 'loading' | 'ready';
   nonce: number; // naik saat Refresh agar iframe dimuat ulang
   minimized: boolean;
+  /** Naik setiap aplikasi dibuka dari keadaan tertutup. Dipakai sebagai key jendela agar
+   *  pembukaan ulang saat animasi tutup masih berjalan selalu memasang iframe baru. */
+  session: number;
 }
 
 export interface WMState {
@@ -18,6 +21,7 @@ export interface WMState {
   flight: Flight | null;
   bounce: Partial<Record<AppId, number>>;
   seq: number;
+  sessions: number;
 }
 
 type FlightInput = Omit<Flight, 'key' | 'id' | 'direction'> | null;
@@ -48,7 +52,8 @@ function reducer(s: WMState, a: Action): WMState {
         ...withFlight(s, a.id, 'open', a.flight),
         wins: exists
           ? s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false } : w))
-          : [...s.wins, { id: a.id, load: 'loading', nonce: 0, minimized: false }],
+          : [...s.wins, { id: a.id, load: 'loading', nonce: 0, minimized: false, session: s.sessions + 1 }],
+        sessions: exists ? s.sessions : s.sessions + 1,
         deck: sendActiveToDeck(s, a.id),
         activeId: a.id,
       };
@@ -99,7 +104,7 @@ function reducer(s: WMState, a: Action): WMState {
   }
 }
 
-const initial: WMState = { wins: [], activeId: null, deck: [], expanded: false, flight: null, bounce: {}, seq: 0 };
+const initial: WMState = { wins: [], activeId: null, deck: [], expanded: false, flight: null, bounce: {}, seq: 0, sessions: 0 };
 
 export function lifecycleOf(s: WMState, id: AppId): WindowLifecycle {
   const w = s.wins.find((x) => x.id === id);

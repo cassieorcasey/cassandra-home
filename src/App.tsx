@@ -134,7 +134,7 @@ export default function App() {
             }
             return (
               <StageWindow
-                key={win.id}
+                key={`${win.id}-${win.session}`}
                 win={win}
                 placement={placement}
                 target={target}
