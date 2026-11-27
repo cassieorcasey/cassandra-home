@@ -10,21 +10,33 @@ export interface CassandraApp {
   featured?: boolean;
 }
 
-/** Siklus hidup satu jendela. Tepat satu jendela boleh 'active'. */
-export type WindowLifecycle =
-  | { phase: 'closed' }
-  | { phase: 'active'; load: 'loading' | 'ready' }
-  | { phase: 'background'; load: 'loading' | 'ready'; reason: 'switched' | 'minimized' };
-
-export type BarMode = 'home' | 'active';
-
+/** Geometri jendela (posisi kiri-atas + ukuran), dipakai stage, drag/resize, dan Side Stage Strip. */
 export interface Rect { x: number; y: number; w: number; h: number }
 
-/** Penerbangan cangkang ikon ↔ jendela. Hanya satu yang berjalan. */
+/** Potret elemen di layar untuk morph: kotak viewport plus radius sudutnya. */
+export interface RectSnapshot {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  borderRadius: number;
+}
+
+/** Fase transisi satu jendela: sedang membuka, terbuka (termasuk di latar), atau sedang menutup. */
+export type WindowTransitionPhase = 'opening' | 'open' | 'closing';
+
+/**
+ * Morph Tile-to-Window yang sedang berjalan. Hanya satu sekaligus.
+ * - opening: dari kartu Launchpad / baris Spotlight ke jendela.
+ * - closing: dari jendela ke kartu Launchpad; `mode` membedakan collapse (sesi tetap hidup)
+ *   dan close (sesi dibuang). `fade` = tujuan tidak ditemukan, proxy memudar di tengah layar.
+ */
 export interface Flight {
   key: number;
   id: AppId;
-  direction: 'open' | 'minimize' | 'close';
-  from: Rect;
-  to: Rect;
+  phase: 'opening' | 'closing';
+  mode: 'open' | 'collapse' | 'close';
+  from: RectSnapshot;
+  to: RectSnapshot;
+  fade: boolean;
 }

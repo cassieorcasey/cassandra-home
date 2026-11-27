@@ -4,9 +4,8 @@ import type { Rect } from './useWindowManager';
 export const MOBILE_MAX = 767;
 /** Tidak ada bilah atas; jarak atas = safe area (poni iPhone) bila ada. */
 export const TOPBAR_H = 0;
-// bilah bawah mobile mode Active: 44 ikon + 2×8 padding + 2 border, plus 8 jarak
-const MOBILE_BAR_SPACE = 70;
-const DOCK_SPACE = 92;
+/** Jarak jendela desktop dari tepi viewport (tanpa dok, bawah = margin + safe area). */
+const STAGE_MARGIN = 12;
 const STRIP_W = 184;
 const STRIP_X = 24;
 
@@ -36,12 +35,12 @@ export function useViewport() {
 
 /** Area Center Stage untuk ukuran layar saat ini. */
 export function stageRect(vp: Viewport, expanded: boolean): Rect {
-  if (vp.mobile) {
-    return { x: 0, y: vp.sat, w: vp.w, h: vp.h - vp.sat - MOBILE_BAR_SPACE - Math.max(12, vp.sab) };
-  }
-  if (expanded) return { x: 8, y: TOPBAR_H + 8, w: vp.w - 16, h: vp.h - TOPBAR_H - 16 };
+  // ponsel: penuh dari poni sampai di atas indikator Home (env(safe-area-inset-*))
+  if (vp.mobile) return { x: 0, y: vp.sat, w: vp.w, h: vp.h - vp.sat - vp.sab };
+  if (expanded) return { x: 8, y: TOPBAR_H + 8, w: vp.w - 16, h: vp.h - TOPBAR_H - 16 - vp.sab };
   const left = STRIP_X + STRIP_W + 28;
-  return { x: left, y: TOPBAR_H + 12, w: vp.w - left - 24, h: vp.h - TOPBAR_H - 12 - DOCK_SPACE };
+  const top = TOPBAR_H + STAGE_MARGIN;
+  return { x: left, y: top, w: vp.w - left - 24, h: vp.h - top - STAGE_MARGIN - vp.sab };
 }
 
 /** Posisi kartu ke-i di Side Stage Strip (desktop). */
@@ -66,7 +65,7 @@ const clampNum = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo)
 
 /**
  * Pembatas geometri jendela desktop. Jendela tetap utuh di dalam viewport (tidak keluar
- * dari atas atau samping) dan tepi bawahnya berhenti di atas UnifiedBottomBar, sehingga
+ * dari atas, samping, maupun bawah (margin viewport + safe area bawah), sehingga
  * .window-header selalu terjangkau.
  * - Tanpa `edge` (drag, viewport berubah ukuran): ukuran dijepit dulu, lalu posisi.
  * - Dengan `edge` (resize): hanya sisi yang ditarik yang bergerak; sisi seberang tetap diam.
@@ -75,7 +74,7 @@ export function clampWindowRect(r: Rect, vp: Viewport, edge?: ResizeEdge): Rect 
   const L = WIN_MARGIN;
   const T = TOPBAR_H + WIN_MARGIN;
   const R = vp.w - WIN_MARGIN;
-  const B = vp.h - DOCK_SPACE;
+  const B = vp.h - WIN_MARGIN - vp.sab;
   const minW = Math.min(MIN_WIN_W, R - L);
   const minH = Math.min(MIN_WIN_H, B - T);
 

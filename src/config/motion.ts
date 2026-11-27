@@ -1,15 +1,15 @@
-export const BOTTOM_BAR_SPRINGS = {
-  // Penerbangan ikon <-> jendela (ζ ≈ 0.88)
-  layoutMorph: { type: 'spring', stiffness: 340, damping: 30, mass: 0.85 },
-  // Pembesaran ikon dok
-  dockMagnify: { type: 'spring', stiffness: 420, damping: 28, mass: 0.55 },
-  // Respons tekan
-  tactileTap: { type: 'spring', stiffness: 520, damping: 32 },
-  // Pantulan ikon saat jendela mendarat (ζ ≈ 0.37)
-  landBounce: { type: 'spring', stiffness: 600, damping: 14, mass: 0.6 },
-} as const;
-
-export const DOCK_GEOMETRY = {
-  desktop: { icon: 48, gap: 22, smax: 1.32, sigma: 62, lift: 24, activateAbove: 24 },
-  touch: { icon: 44, gap: 12, smax: 1.2, sigma: 52, lift: 20 },
+/**
+ * Kurva Tile-to-Window Morph.
+ * - open: pegas buka, cepat tanpa overshoot berlebih (ζ ≈ 0.89).
+ * - close: pegas tutup lebih sigap (ζ ≈ 0.96, ~240 ms).
+ * Durasi `*Ms` adalah perkiraan waktu tempuh visual masing-masing pegas, dipakai untuk
+ * menjadwalkan fade konten (buka: 40–100 %, tutup: 35 % pertama).
+ */
+export const WINDOW_MORPH = {
+  open: { type: 'spring', stiffness: 380, damping: 32, mass: 0.85 },
+  close: { type: 'spring', stiffness: 440, damping: 36, mass: 0.8 },
+  openMs: 380,
+  closeMs: 240,
+  /** pengganti morph saat prefers-reduced-motion */
+  reducedFadeMs: 120,
 } as const;

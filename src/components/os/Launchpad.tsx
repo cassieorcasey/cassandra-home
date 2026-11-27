@@ -1,16 +1,27 @@
 import { motion } from 'motion/react';
 import { apps } from '../../config/apps.config';
-import type { Rect } from '../../hooks/useWindowManager';
+import { WINDOW_MORPH } from '../../config/motion';
+import type { AppId } from '../../types/os';
 import { RotatingGreeting } from '../ui/RotatingGreeting';
 import { Squiggle } from '../ui/Squiggle';
 import { SpaceCard } from './SpaceCard';
 
+/**
+ * Keadaan Launchpad di belakang jendela:
+ * - 'none': tampil penuh (tidak ada jendela aktif).
+ * - 'dim': redup tipis (0.65, skala 0.98) selama morph membuka, memberi fokus ke jendela.
+ * - 'away': tersembunyi setelah jendela mendarat, supaya tidak bertabrakan dengan
+ *   Side Stage Strip atau jendela desktop yang ukurannya diubah.
+ */
+export type LaunchpadDim = 'none' | 'dim' | 'away';
+
 interface Props {
-  hidden: boolean;
+  dim: LaunchpadDim;
   padLeft: number;
   running: Set<string>;
   reduced: boolean;
-  onLaunch: (id: string, origin: Rect) => void;
+  onLaunch: (id: AppId) => void;
+  registerTile: (id: AppId, el: HTMLElement | null) => void;
 }
 
 const PROMPT = 'Which app are you opening today?';
@@ -53,7 +64,8 @@ function Split({ text, delay = 160, gradient = false }: { text: string; delay?: 
   );
 }
 
-export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props) {
+export function Launchpad({ dim, padLeft, running, reduced, onLaunch, registerTile }: Props) {
+  const hidden = dim !== 'none';
   // fitur unggulan di depan, sisanya mengikuti urutan registri
   const ordered = [...apps.filter((a) => a.featured), ...apps.filter((a) => !a.featured)];
 
@@ -62,8 +74,13 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
       className="launchpad"
       inert={hidden}
       aria-hidden={hidden}
-      animate={{ opacity: hidden ? 0 : 1, scale: hidden && !reduced ? 0.98 : 1 }}
-      transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+      animate={{ opacity: dim === 'away' ? 0 : dim === 'dim' ? 0.65 : 1, scale: hidden && !reduced ? 0.98 : 1 }}
+      // kembali (tutup) secepat morph tutup agar kartu sudah di skala 1 saat proxy mendarat
+      transition={
+        reduced
+          ? { duration: WINDOW_MORPH.reducedFadeMs / 1000 }
+          : { duration: (hidden ? WINDOW_MORPH.openMs : WINDOW_MORPH.closeMs) / 1000, ease: [0.2, 0, 0, 1] }
+      }
       style={{ paddingLeft: padLeft }}
     >
       <section className="hero">
@@ -92,7 +109,14 @@ export function Launchpad({ hidden, padLeft, running, reduced, onLaunch }: Props
           </p>
           <div className="quick-apps-grid">
             {ordered.map((app, i) => (
-              <SpaceCard key={app.id} app={app} index={i} running={running.has(app.id)} onLaunch={onLaunch} />
+              <SpaceCard
+                key={app.id}
+                app={app}
+                index={i}
+                running={running.has(app.id)}
+                onLaunch={onLaunch}
+                registerTile={registerTile}
+              />
             ))}
           </div>
         </section>

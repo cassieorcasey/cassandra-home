@@ -1,5 +1,5 @@
-import { useMemo, useReducer } from 'react';
-import type { AppId, Flight, Rect, WindowLifecycle } from '../types/os';
+import { useCallback, useMemo, useReducer, useRef } from 'react';
+import type { AppId, Flight, Rect, RectSnapshot, WindowTransitionPhase } from '../types/os';
 
 export type { Rect } from '../types/os';
 
@@ -7,13 +7,16 @@ export interface Win {
   id: AppId;
   load: 'loading' | 'ready';
   nonce: number; // naik saat Refresh agar iframe dimuat ulang
+  /** Di-collapse ke Launchpad: sesi iframe tetap hidup di latar (titik di kartu SpaceCard). */
   minimized: boolean;
   /** Naik setiap aplikasi dibuka dari keadaan tertutup. Dipakai sebagai key jendela agar
    *  pembukaan ulang saat animasi tutup masih berjalan selalu memasang iframe baru. */
   session: number;
   /** Geometri hasil drag/resize di desktop. Bertahan selama di Side Stage Strip atau
-   *  di-minimize; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
+   *  di-collapse; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
   rect?: Rect;
+  /** opening/closing selama morph berjalan; jendela 'closing' masih dirender sampai morph mendarat. */
+  phase: WindowTransitionPhase;
 }
 
 export interface WMState {
@@ -22,12 +25,11 @@ export interface WMState {
   deck: AppId[]; // aplikasi latar belakang karena berpindah (Side Stage Strip), terbaru di depan
   expanded: boolean;
   flight: Flight | null;
-  bounce: Partial<Record<AppId, number>>;
   seq: number;
   sessions: number;
 }
 
-type FlightInput = Omit<Flight, 'key' | 'id' | 'direction'> | null;
+type FlightInput = Omit<Flight, 'key' | 'id' | 'phase' | 'mode'> | null;
 
 type Action =
   | { type: 'launch'; id: AppId; flight: FlightInput }
@@ -40,23 +42,50 @@ type Action =
   | { type: 'setRect'; id: AppId; rect: Rect }
   | { type: 'toggleExpand' };
 
-const withFlight = (s: WMState, id: AppId, direction: Flight['direction'], f: FlightInput): Pick<WMState, 'flight' | 'seq'> =>
-  f ? { flight: { ...f, id, direction, key: s.seq + 1 }, seq: s.seq + 1 } : { flight: null, seq: s.seq };
+const withFlight = (s: WMState, id: AppId, mode: Flight['mode'], f: FlightInput): Pick<WMState, 'flight' | 'seq'> =>
+  f
+    ? { flight: { ...f, id, mode, phase: mode === 'open' ? 'opening' : 'closing', key: s.seq + 1 }, seq: s.seq + 1 }
+    : { flight: null, seq: s.seq };
 
 const sendActiveToDeck = (s: WMState, except: AppId) =>
   [s.activeId, ...s.deck].filter((x): x is AppId => !!x && x !== except);
 
-function reducer(s: WMState, a: Action): WMState {
+/** Sedang dalam morph tutup (bukan collapse): sesinya dibuang begitu mendarat. */
+const isDying = (w: Win) => w.phase === 'closing' && !w.minimized;
+/** Jendela yang masih hidup (bukan sedang ditutup). */
+export const isLive = (w: Win) => !isDying(w);
+
+/** Selesaikan morph yang sedang berjalan seolah sudah mendarat. */
+function settle(s: WMState): WMState {
+  const f = s.flight;
+  if (!f) return s;
+  const wins =
+    f.mode === 'close'
+      ? s.wins.filter((w) => !(w.id === f.id && isDying(w)))
+      : s.wins.map((w) => (w.id === f.id ? { ...w, phase: 'open' as const } : w));
+  return { ...s, flight: null, wins };
+}
+
+function reducer(prev: WMState, a: Action): WMState {
+  // Morph baru untuk aplikasi lain menggantikan yang lama: yang lama dituntaskan dulu, supaya
+  // tidak ada jendela yang tertahan di fase opening/closing. Morph aplikasi yang sama dilanjutkan
+  // dari posisi live-nya (interupsi) oleh FlightLayer.
+  const target =
+    a.type === 'launch' || a.type === 'focus' || a.type === 'close' ? a.id : a.type === 'minimize' ? prev.activeId : null;
+  const s = prev.flight && target && prev.flight.id !== target ? settle(prev) : prev;
   switch (a.type) {
     case 'launch': {
       if (s.activeId === a.id) return s;
-      const exists = s.wins.some((w) => w.id === a.id);
+      // sesi yang sedang ditutup tidak dihidupkan lagi: dibuang, lalu dibuka sesi baru
+      const wins = s.wins.filter((w) => !(w.id === a.id && isDying(w)));
+      const exists = wins.some((w) => w.id === a.id);
+      const phase: WindowTransitionPhase = a.flight ? 'opening' : 'open';
       return {
         ...s,
         ...withFlight(s, a.id, 'open', a.flight),
         wins: exists
-          ? s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false } : w))
-          : [...s.wins, { id: a.id, load: 'loading', nonce: 0, minimized: false, session: s.sessions + 1 }],
+          ? wins.map((w) => (w.id === a.id ? { ...w, minimized: false, phase } : w))
+          : [...wins, { id: a.id, load: 'loading', nonce: 0, minimized: false, session: s.sessions + 1, phase }],
         sessions: exists ? s.sessions : s.sessions + 1,
         deck: sendActiveToDeck(s, a.id),
         activeId: a.id,
@@ -66,7 +95,7 @@ function reducer(s: WMState, a: Action): WMState {
       if (s.activeId === a.id) return s;
       return {
         ...s,
-        wins: s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false } : w)),
+        wins: s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false, phase: 'open' } : w)),
         deck: sendActiveToDeck(s, a.id),
         activeId: a.id,
         flight: null,
@@ -76,29 +105,29 @@ function reducer(s: WMState, a: Action): WMState {
       if (!id) return s;
       return {
         ...s,
-        ...withFlight(s, id, 'minimize', a.flight),
-        wins: s.wins.map((w) => (w.id === id ? { ...w, minimized: true } : w)),
+        ...withFlight(s, id, 'collapse', a.flight),
+        wins: s.wins.map((w) => (w.id === id ? { ...w, minimized: true, phase: a.flight ? 'closing' : 'open' } : w)),
         activeId: null,
         expanded: false,
       };
     }
     case 'close': {
       const wasActive = s.activeId === a.id;
+      const animate = wasActive && !!a.flight;
       return {
         ...s,
-        ...(wasActive ? withFlight(s, a.id, 'close', a.flight) : { flight: s.flight }),
-        wins: s.wins.filter((w) => w.id !== a.id),
+        ...(animate ? withFlight(s, a.id, 'close', a.flight) : { flight: s.flight }),
+        // dengan morph, entri tetap ada (phase 'closing') sampai mendarat; tanpa morph langsung dibuang
+        wins: animate
+          ? s.wins.map((w) => (w.id === a.id ? { ...w, phase: 'closing' } : w))
+          : s.wins.filter((w) => w.id !== a.id),
         deck: s.deck.filter((x) => x !== a.id),
         activeId: wasActive ? null : s.activeId,
         expanded: wasActive ? false : s.expanded,
       };
     }
-    case 'landed': {
-      const f = s.flight;
-      if (!f || f.key !== a.key) return s;
-      const bounce = f.direction === 'open' ? s.bounce : { ...s.bounce, [f.id]: (s.bounce[f.id] ?? 0) + 1 };
-      return { ...s, flight: null, bounce };
-    }
+    case 'landed':
+      return s.flight && s.flight.key === a.key ? settle(s) : s;
     case 'ready':
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'ready' } : w)) };
     case 'refresh':
@@ -110,17 +139,48 @@ function reducer(s: WMState, a: Action): WMState {
   }
 }
 
-const initial: WMState = { wins: [], activeId: null, deck: [], expanded: false, flight: null, bounce: {}, seq: 0, sessions: 0 };
+const initial: WMState = { wins: [], activeId: null, deck: [], expanded: false, flight: null, seq: 0, sessions: 0 };
 
-export function lifecycleOf(s: WMState, id: AppId): WindowLifecycle {
-  const w = s.wins.find((x) => x.id === id);
-  if (!w) return { phase: 'closed' };
-  if (s.activeId === id) return { phase: 'active', load: w.load };
-  return { phase: 'background', load: w.load, reason: w.minimized ? 'minimized' : 'switched' };
+/**
+ * Potret elemen dalam koordinat "istirahat" Launchpad. Saat jendela terbuka, .launchpad
+ * diperkecil ke 0.98 (scale dari tengahnya); getBoundingClientRect() mentah akan bergeser
+ * dari posisi kartu begitu skala kembali ke 1. Skala itu dibalik di sini.
+ */
+function restSnapshot(el: HTMLElement): RectSnapshot {
+  const r = el.getBoundingClientRect();
+  const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+  const pad = el.closest<HTMLElement>('.launchpad');
+  const s = pad && pad.offsetWidth ? pad.getBoundingClientRect().width / pad.offsetWidth : 1;
+  if (!pad || Math.abs(s - 1) < 0.001) {
+    return { top: r.top, left: r.left, width: r.width, height: r.height, borderRadius: radius };
+  }
+  const p = pad.getBoundingClientRect();
+  const cx = p.left + p.width / 2;
+  const cy = p.top + p.height / 2;
+  return {
+    left: cx + (r.left - cx) / s,
+    top: cy + (r.top - cy) / s,
+    width: r.width / s,
+    height: r.height / s,
+    borderRadius: radius,
+  };
 }
 
 export function useWindowManager() {
   const [state, dispatch] = useReducer(reducer, initial);
+
+  // ---- registry kartu Launchpad per aplikasi: titik asal dan titik pulang morph
+  const tileElements = useRef(new Map<AppId, HTMLElement>());
+  const registerTileElement = useCallback((id: AppId, el: HTMLElement | null) => {
+    if (el) tileElements.current.set(id, el);
+    else tileElements.current.delete(id);
+  }, []);
+  /** Rect kartu SpaceCard terbaru (dibaca saat itu juga) atau null bila tidak terpasang. */
+  const getTileRect = useCallback((id: AppId): RectSnapshot | null => {
+    const el = tileElements.current.get(id);
+    return el && el.isConnected ? restSnapshot(el) : null;
+  }, []);
+
   const actions = useMemo(
     () => ({
       launch: (id: AppId, flight: FlightInput = null) => dispatch({ type: 'launch', id, flight }),
@@ -135,12 +195,13 @@ export function useWindowManager() {
     }),
     [],
   );
-  return { state, ...actions };
+  return { state, registerTileElement, getTileRect, ...actions };
 }
 
-/** Aksi yang dipakai StageWindow; App membungkusnya dengan perhitungan rect penerbangan. */
+/** Aksi yang dipakai StageWindow; App membungkusnya dengan perhitungan rect morph. */
 export interface WindowActions {
   close: (id: AppId) => void;
+  /** Collapse ke Launchpad: jendela pulang ke kartunya, sesi iframe tetap hidup. */
   minimize: () => void;
   focus: (id: AppId) => void;
   refresh: (id: AppId) => void;

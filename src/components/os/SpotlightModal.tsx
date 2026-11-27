@@ -3,11 +3,28 @@ import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apps } from '../../config/apps.config';
 import { AppTile } from '../ui/AppTile';
+import type { AppId, RectSnapshot } from '../../types/os';
 
 interface Props {
   reduced: boolean;
   onClose: () => void;
-  onLaunch: (id: string) => void;
+  /** origin = potret baris hasil yang dipilih, titik asal morph ke jendela */
+  onLaunch: (id: AppId, origin: RectSnapshot | null) => void;
+}
+
+/** Modal menutup cepat (≈100 ms) begitu item dipilih, sementara morph sudah berangkat. */
+const EXIT = { duration: 0.1 };
+
+function snapshotOf(el: HTMLElement | null): RectSnapshot | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return {
+    top: r.top,
+    left: r.left,
+    width: r.width,
+    height: r.height,
+    borderRadius: parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0,
+  };
 }
 
 export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
@@ -28,7 +45,8 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
 
   const pick = (i: number) => {
     const app = results[i];
-    if (app) onLaunch(app.id);
+    // baca rect sebelum modal mulai memudar (klik maupun Enter memakai baris yang sama)
+    if (app) onLaunch(app.id, snapshotOf(document.getElementById(`sr-${app.id}`)));
   };
 
   return (
@@ -36,7 +54,7 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
       className="spotlight-backdrop"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, transition: EXIT }}
       transition={{ duration: 0.15 }}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
@@ -47,7 +65,7 @@ export function SpotlightModal({ reduced, onClose, onLaunch }: Props) {
         aria-label="Cari aplikasi"
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
+        exit={reduced ? { opacity: 0, transition: EXIT } : { opacity: 0, y: -8, scale: 0.98, transition: EXIT }}
         transition={{ type: 'spring', stiffness: 420, damping: 32 }}
       >
         <div className="spotlight-field">

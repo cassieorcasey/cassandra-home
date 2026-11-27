@@ -7,6 +7,8 @@ import { clampWindowRect, type ResizeEdge, type Viewport } from '../../hooks/use
 import type { Win, WindowActions } from '../../hooks/useWindowManager';
 import { AppTile } from '../ui/AppTile';
 import type { Rect } from '../../types/os';
+import { WINDOW_MORPH } from '../../config/motion';
+import type { Morph } from '../../hooks/useMorph';
 
 export type Placement = 'stage' | 'deck' | 'hidden';
 
@@ -14,8 +16,8 @@ interface Props {
   win: Win;
   placement: Placement;
   target: { x: number; y: number; w: number; h: number; scale: number; opacity: number };
-  /** false selama cangkang penerbangan masih menuju stage. */
-  revealed: boolean;
+  /** Nilai live morph bila jendela ini sedang membuka/menutup lewat Tile-to-Window Morph. */
+  morph: Morph | null;
   mobile: boolean;
   expanded: boolean;
   /** Ada aplikasi lain yang berjalan: swipe samping di ponsel bisa berpindah. */
@@ -28,6 +30,7 @@ interface Props {
 }
 
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
+const reducedFade = WINDOW_MORPH.reducedFadeMs / 1000;
 
 /** Tepi atas sengaja tanpa pegangan: header-lah pegangan geser (pola referensi). */
 const EDGES: ResizeEdge[] = ['e', 'w', 's', 'se', 'sw'];
@@ -70,15 +73,18 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, target, revealed, mobile, expanded, canCycle, vp, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, target, morph, mobile, expanded, canCycle, vp, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const active = placement === 'stage';
   const loading = win.load === 'loading';
   /** Drag & resize hanya untuk jendela aktif di desktop, dan dimatikan selama expanded. */
-  const interactive = active && !mobile && !expanded;
+  const interactive = active && !mobile && !expanded && !morph;
   /** Di ponsel header jendela aktif menerima swipe: bawah = minimize, samping = pindah aplikasi. */
-  const swipeable = active && mobile;
+  const swipeable = active && mobile && !morph;
+  /** Sudah pulang ke kartunya lewat morph: sembunyi seketika (konten sudah pudar, permukaan
+   *  jendela tidak boleh berkedip sekejap di ukuran penuh saat proxy dilepas). */
+  const collapsed = placement === 'hidden' && win.minimized && !reduced && !morph;
 
   // ---- geometri sementara: lokal di sini selama gesture, dikirim ke window manager sekali di akhir
   const [live, setLive] = useState<Rect | null>(null);
@@ -236,12 +242,14 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
 
   const geo = live ?? target;
   const initial = { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: target.scale, scaleY: target.scale, opacity: 0 };
-  const exit = { opacity: 0, transition: { duration: reduced ? 0.18 : 0.08 } };
-  const shown = revealed ? target.opacity : 0;
+  const exit = { opacity: 0, transition: { duration: reduced ? reducedFade : 0.08 } };
+  // selama morph permukaan jendela transparan (proxy di bawahnya yang menggambar), kontennya
+  // dipotong ke kotak proxy dan memudar lewat morph.content
+  const shown = morph ? 1 : target.opacity;
 
   return (
     <motion.section
-      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'deck' ? 'is-deck' : ''} ${placement === 'hidden' ? 'is-hidden' : ''} ${interactive ? 'is-movable' : ''} ${swipeable ? 'is-swipeable' : ''} ${busy ? 'is-interacting' : ''}`}
+      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'deck' ? 'is-deck' : ''} ${placement === 'hidden' ? 'is-hidden' : ''} ${interactive ? 'is-movable' : ''} ${swipeable ? 'is-swipeable' : ''} ${busy ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
       aria-label={app.name}
       aria-hidden={placement === 'hidden' || undefined}
       inert={placement === 'hidden'}
@@ -255,19 +263,23 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
         scaleY: target.scale,
         opacity: shown,
         borderRadius: mobile && active ? 0 : 18,
-        transitionEnd: { visibility: placement === 'hidden' ? 'hidden' : 'visible' },
+        transitionEnd: { visibility: placement === 'hidden' && !morph ? 'hidden' : 'visible' },
       }}
       exit={exit}
       transition={
-        live
+        live || collapsed
           ? { duration: 0 }
           : reduced
-            ? { duration: 0.18 }
+            ? { duration: reducedFade }
             : { ...spring, opacity: { duration: shown ? 0.14 : 0.08 } }
       }
-      style={{ transformOrigin: '0 0', zIndex: active ? 30 : 20 }}
+      style={{ transformOrigin: '0 0', zIndex: active || morph ? 30 : 20, clipPath: morph ? morph.clip : 'none' }}
     >
-      <div className="window-inner" inert={!active}>
+      <motion.div
+        className="window-inner"
+        inert={!active}
+        style={{ opacity: morph ? morph.content : 1, scale: morph ? morph.scale : 1 }}
+      >
         <header
           className="window-header"
           onPointerDown={onHeaderDown}
@@ -282,7 +294,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
             <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
               <Icon name="close" size={16} />
             </button>
-            <button type="button" className="tl tl-min" aria-label="Minimize ke Dock" title="Minimize (Esc)" onClick={wm.minimize}>
+            <button type="button" className="tl tl-min" aria-label="Kembali ke Launchpad" title="Kembali ke Launchpad (Esc)" onClick={wm.minimize}>
               <Icon name="minus" size={16} />
             </button>
             {!mobile && (
@@ -355,7 +367,7 @@ export function StageWindow({ win, placement, target, revealed, mobile, expanded
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {interactive &&
         EDGES.map((edge) => (
