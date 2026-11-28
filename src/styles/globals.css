@@ -8,8 +8,8 @@
 
   /* fungsional (Light) */
   /* netral bertumpu pada Dusty Mauve #b7a7aa */
-  --ink: #4a3f42; /* teks utama (Deep Mineral Taupe): 9.8:1 di #fcfbfd, 7.1:1 di #e4d4df */
-  --ink-2: #75666a; /* teks sekunder (Muted Quartz): 5.3:1 di #fcfbfd */
+  --ink: #2b252c; /* teks utama: gelap, menyatu dengan gradasi wordmark */
+  --ink-2: #6b575b; /* teks sekunder (Quartz Ink): 6.48:1 di #fcfbfd */
   --ink-3: #948589; /* label mikro & ikon non-aktif: 3.4:1 di #fcfbfd */
   --signal: #238b5d; /* Mint Signal */
   --surface: #fcfbfd;
