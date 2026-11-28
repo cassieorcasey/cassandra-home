@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer, useRef } from 'react';
-import type { AppId, Flight, Rect, RectSnapshot, WindowTransitionPhase } from '../types/os';
+import type { AppId, Flight, RectSnapshot, WindowTransitionPhase } from '../types/os';
 
 export type { Rect } from '../types/os';
 
@@ -12,9 +12,6 @@ export interface Win {
   /** Naik setiap aplikasi dibuka dari keadaan tertutup. Dipakai sebagai key jendela agar
    *  pembukaan ulang saat animasi tutup masih berjalan selalu memasang iframe baru. */
   session: number;
-  /** Geometri hasil drag/resize di desktop. Bertahan selama
-   *  diperkecil; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
-  rect?: Rect;
   /** opening/closing selama morph berjalan; jendela 'closing' masih dirender sampai morph mendarat. */
   phase: WindowTransitionPhase;
 }
@@ -33,12 +30,11 @@ type FlightInput = Omit<Flight, 'key' | 'id' | 'phase' | 'mode'> | null;
 export type Action =
   | { type: 'launch'; id: AppId; flight: FlightInput }
   | { type: 'focus'; id: AppId }
-  | { type: 'minimize'; flight: FlightInput }
-  | { type: 'close'; id: AppId; flight: FlightInput }
+  | { type: 'minimize'; id: AppId; flight: FlightInput; next: AppId | null }
+  | { type: 'close'; id: AppId; flight: FlightInput; next: AppId | null }
   | { type: 'landed'; key: number }
   | { type: 'ready'; id: AppId }
   | { type: 'refresh'; id: AppId }
-  | { type: 'setRect'; id: AppId; rect: Rect }
   | { type: 'toggleExpand' };
 
 const withFlight = (s: WMState, id: AppId, mode: Flight['mode'], f: FlightInput): Pick<WMState, 'flight' | 'seq'> =>
@@ -69,7 +65,7 @@ export function reducer(prev: WMState, a: Action): WMState {
   // tidak ada jendela yang tertahan di fase opening/closing. Morph aplikasi yang sama dilanjutkan
   // dari posisi live-nya (interupsi) oleh FlightLayer.
   const target =
-    a.type === 'launch' || a.type === 'focus' || a.type === 'close' ? a.id : a.type === 'minimize' ? prev.activeId : null;
+    a.type === 'launch' || a.type === 'close' || a.type === 'minimize' ? a.id : null;
   const s = prev.flight && target && prev.flight.id !== target ? settle(prev) : prev;
   switch (a.type) {
     case 'launch': {
@@ -86,6 +82,7 @@ export function reducer(prev: WMState, a: Action): WMState {
           : [...wins, { id: a.id, load: 'loading', nonce: 0, minimized: false, session: s.sessions + 1, phase }],
         sessions: exists ? s.sessions : s.sessions + 1,
         activeId: a.id,
+        expanded: false,
       };
     }
     case 'focus':
@@ -94,22 +91,24 @@ export function reducer(prev: WMState, a: Action): WMState {
         ...s,
         wins: s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false, phase: 'open' } : w)),
         activeId: a.id,
-        flight: null,
+        expanded: false,
+        // fokus tidak menyentuh morph yang sedang berjalan (jendela lain boleh masih membuka/menutup)
       };
     case 'minimize': {
-      const id = s.activeId;
-      if (!id) return s;
+      const id = a.id;
+      if (!s.wins.some((w) => w.id === id && isLive(w))) return s;
       return {
         ...s,
         ...withFlight(s, id, 'collapse', a.flight),
         wins: s.wins.map((w) => (w.id === id ? { ...w, minimized: true, phase: a.flight ? 'closing' : 'open' } : w)),
-        activeId: null,
-        expanded: false,
+        // fokus pindah ke jendela lain yang masih tampil di layar ini (dipilih App)
+        activeId: s.activeId === id ? a.next : s.activeId,
+        expanded: s.activeId === id ? false : s.expanded,
       };
     }
     case 'close': {
       const wasActive = s.activeId === a.id;
-      const animate = wasActive && !!a.flight;
+      const animate = !!a.flight;
       return {
         ...s,
         ...(animate ? withFlight(s, a.id, 'close', a.flight) : { flight: s.flight }),
@@ -117,7 +116,7 @@ export function reducer(prev: WMState, a: Action): WMState {
         wins: animate
           ? s.wins.map((w) => (w.id === a.id ? { ...w, phase: 'closing' } : w))
           : s.wins.filter((w) => w.id !== a.id),
-        activeId: wasActive ? null : s.activeId,
+        activeId: wasActive ? a.next : s.activeId,
         expanded: wasActive ? false : s.expanded,
       };
     }
@@ -127,8 +126,6 @@ export function reducer(prev: WMState, a: Action): WMState {
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'ready' } : w)) };
     case 'refresh':
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'loading', nonce: w.nonce + 1 } : w)) };
-    case 'setRect':
-      return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, rect: a.rect } : w)) };
     case 'toggleExpand':
       return { ...s, expanded: !s.expanded };
   }
@@ -195,12 +192,11 @@ export function useWindowManager() {
     () => ({
       launch: (id: AppId, flight: FlightInput = null) => dispatch({ type: 'launch', id, flight }),
       focus: (id: AppId) => dispatch({ type: 'focus', id }),
-      minimize: (flight: FlightInput = null) => dispatch({ type: 'minimize', flight }),
-      close: (id: AppId, flight: FlightInput = null) => dispatch({ type: 'close', id, flight }),
+      minimize: (id: AppId, flight: FlightInput = null, next: AppId | null = null) => dispatch({ type: 'minimize', id, flight, next }),
+      close: (id: AppId, flight: FlightInput = null, next: AppId | null = null) => dispatch({ type: 'close', id, flight, next }),
       landed: (key: number) => dispatch({ type: 'landed', key }),
       markReady: (id: AppId) => dispatch({ type: 'ready', id }),
       refresh: (id: AppId) => dispatch({ type: 'refresh', id }),
-      setRect: (id: AppId, rect: Rect) => dispatch({ type: 'setRect', id, rect }),
       toggleExpand: () => dispatch({ type: 'toggleExpand' }),
     }),
     [],
@@ -211,14 +207,13 @@ export function useWindowManager() {
 /** Aksi yang dipakai StageWindow; App membungkusnya dengan perhitungan rect morph. */
 export interface WindowActions {
   close: (id: AppId) => void;
-  /** Perkecil ke tab-nya di Multitask Bar: sesi iframe tetap hidup. */
-  minimize: () => void;
+  /** Perkecil jendela ini ke tab-nya di Multitask Bar: sesi iframe tetap hidup. */
+  minimize: (id: AppId) => void;
   focus: (id: AppId) => void;
   refresh: (id: AppId) => void;
-  toggleExpand: () => void;
+  /** Jendela ini sementara memenuhi stage (atau kembali ke grid). */
+  toggleExpand: (id: AppId) => void;
   markReady: (id: AppId) => void;
-  /** Rect final setelah drag/resize (dikirim sekali pada pointerup/pointercancel). */
-  setRect: (id: AppId, rect: Rect) => void;
-  /** Pindah ke aplikasi berjalan berikutnya (1) atau sebelumnya (-1) dari `id`, berputar. */
-  cycle: (id: AppId, dir: 1 | -1) => void;
+  /** Pindah ke layar berikutnya (1) atau sebelumnya (-1); diam di ujung. */
+  switchScreen: (dir: 1 | -1) => void;
 }

@@ -40,3 +40,20 @@ test('tabSlotRect: fifth tab sits alone on page two', () => {
 test('tabSlotRect: lifts above the bottom safe area', () => {
   expect(tabSlotRect({ ...desk, sab: 34 }, 1, 0, 0).top).toBe(800);
 });
+
+import { screenCapacity } from './taskbar';
+const phoneVp = { w: 390, h: 844, sab: 34 };
+test('capacity K: 4 on desktop, 2 on phones', () => {
+  expect(screenCapacity(false)).toBe(4);
+  expect(screenCapacity(true)).toBe(2);
+});
+test('paging takes K', () => {
+  expect(pageCount(3, 2)).toBe(2);
+  expect(pageOf(2, 2)).toBe(1);
+  expect(clampPage(2, 3, 2)).toBe(1);
+  expect(nextPageFromSwipe(0, 3, -200, 400, 0, 2)).toBe(1);
+});
+test('tabSlotRect with K = 2', () => {
+  expect(tabSlotRect(phoneVp, 3, 2, 1, 2).left).toBe(195 - (20 + 44 + 15) / 2 + 10);
+  expect(tabSlotRect(phoneVp, 2, 1, 0, 2).left).toBe(195 - (20 + 44 * 2 + 14) / 2 + 10 + 58);
+});

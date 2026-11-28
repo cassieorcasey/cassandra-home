@@ -1,12 +1,10 @@
 import { animate, motion, useMotionValue } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { appById, apps } from '../../config/apps.config';
-import { BAR_H, nextPageFromSwipe, pageCount, pageOf, pageSlots, slotsWidth, TABS_PER_PAGE, TB_ICON, TB_SLOT } from '../../lib/taskbar';
+import { BAR_H, nextPageFromSwipe, pageCount, pageOf, pageSlots, slotsWidth, TB_ICON, TB_SLOT } from '../../lib/taskbar';
 import type { AppId, RectSnapshot } from '../../types/os';
 import { AppTile } from '../ui/AppTile';
 
-/** Lebar satu halaman tab (4 ikon + 4 jarak): geseran track per halaman. */
-const PAGE_W = TABS_PER_PAGE * TB_SLOT;
 const AXIS_LOCK = 10;
 const ROW_SWIPE = 24;
 const LONG_PRESS_MS = 450;
@@ -26,6 +24,8 @@ interface Props {
   /** 0 = tab berjalan, 1 = peluncur. Dikendalikan App supaya App bisa memaksa baris/halaman sebelum morph. */
   row: 0 | 1;
   page: number;
+  /** Tab per halaman = kapasitas layar (4 desktop/tablet, 2 HP). */
+  perPage: number;
   onRow: (row: 0 | 1) => void;
   onPage: (page: number) => void;
   onTab: (id: AppId) => void;
@@ -42,9 +42,11 @@ type Gesture = { id: number; x0: number; y0: number; axis: 'x' | 'y' | null; las
  * Multitask Bar: pil melayang di bawah dengan dua baris yang di-snap vertikal.
  * Baris 1 = tab aplikasi berjalan (4 per halaman, geser kiri/kanan), baris 2 = peluncur kelima aplikasi.
  */
-export function TaskBar({ tabs, activeId, minimized, row, page, onRow, onPage, onTab, onLaunch, registerTab, arriving, reduced }: Props) {
+export function TaskBar({ tabs, activeId, minimized, row, page, perPage, onRow, onPage, onTab, onLaunch, registerTab, arriving, reduced }: Props) {
   const n = tabs.length;
-  const pages = pageCount(n);
+  const pages = pageCount(n, perPage);
+  /** Lebar satu halaman tab (perPage ikon + jarak): geseran track per halaman. */
+  const PAGE_W = perPage * TB_SLOT;
   const trackX = useMotionValue(-page * PAGE_W);
   const rowsY = useMotionValue(-row * BAR_H);
   const gesture = useRef<Gesture | null>(null);
@@ -64,7 +66,7 @@ export function TaskBar({ tabs, activeId, minimized, row, page, onRow, onPage, o
     settleTrack(page);
     return () => trackAnim.current?.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, trackX, reduced]);
+  }, [page, trackX, reduced, PAGE_W]);
   useEffect(() => {
     const c = animate(rowsY, -row * BAR_H, reduced ? { duration: 0 } : SPRING);
     return () => c.stop();
@@ -141,7 +143,7 @@ export function TaskBar({ tabs, activeId, minimized, row, page, onRow, onPage, o
     const dx = e.clientX - g.x0;
     const dy = e.clientY - g.y0;
     if (g.axis === 'x' && row === 0) {
-      const next = cancelled ? page : nextPageFromSwipe(page, n, dx, PAGE_W, g.v);
+      const next = cancelled ? page : nextPageFromSwipe(page, n, dx, PAGE_W, g.v, perPage);
       if (next !== page) onPage(next);
       else settleTrack(page);
     } else if (g.axis === 'y' && !cancelled && Math.abs(dy) >= ROW_SWIPE && n > 0) {
@@ -181,11 +183,11 @@ export function TaskBar({ tabs, activeId, minimized, row, page, onRow, onPage, o
     if (i === -1) return;
     e.preventDefault();
     const j = Math.min(Math.max(i + (e.key === 'ArrowRight' ? 1 : -1), 0), list.length - 1);
-    if (row === 0) onPage(Math.floor(j / TABS_PER_PAGE));
+    if (row === 0) onPage(Math.floor(j / perPage));
     list[j].focus({ preventScroll: true });
   };
 
-  const slots = row === 1 ? apps.length : pageSlots(n, page);
+  const slots = row === 1 ? apps.length : pageSlots(n, page, perPage);
   const running = new Set(tabs);
 
   return (
@@ -236,7 +238,7 @@ export function TaskBar({ tabs, activeId, minimized, row, page, onRow, onPage, o
                     onPointerEnter={(e) => e.pointerType === 'mouse' && setLabel(id)}
                     onPointerLeave={() => setLabel(null)}
                     onFocus={(e) => {
-                      onPage(pageOf(index)); // tab yang difokus keyboard selalu di halaman yang terlihat
+                      onPage(pageOf(index, perPage)); // tab yang difokus keyboard selalu di halaman yang terlihat
                       if (e.currentTarget.matches(':focus-visible')) setLabel(id);
                     }}
                     onBlur={() => setLabel(null)}

@@ -552,123 +552,17 @@ body {
   display: grid;
 }
 
-/* ---- drag & resize (desktop, jendela aktif non-expanded) ----
-   Pola UX: seluruh header = pegangan geser (grab → grabbing). Tidak ada pegangan atas;
-   tepi kiri/kanan/bawah 10 px menjorok 3 px keluar; sudut bawah berupa busur 36 px yang
-   tersembunyi, tampil samar saat jendela di-hover dan penuh saat busurnya di-hover. */
-.stage-window.is-movable .window-header {
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
+/* ---- Split Screens: cincin penanda jendela yang difokus bila lebih dari satu tampil ---- */
+.stage-window.is-split.is-focused {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--ink-2) 55%, transparent),
+    var(--shadow-lg);
 }
-.rz {
-  position: absolute;
-  z-index: 5;
-  touch-action: none;
-}
-/* mulai di bawah header: area header milik gesture geser & tombolnya */
-.rz-e,
-.rz-w {
-  top: 48px;
-  bottom: 0;
-  width: 10px;
-}
-.rz-e {
-  right: -3px;
-}
-.rz-w {
-  left: -3px;
-}
-.rz-s {
-  bottom: -3px;
-  left: 0;
-  width: 100%;
-  height: 10px;
-}
-.rz-se,
-.rz-sw {
-  z-index: 6;
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  color: var(--ink-2);
-  opacity: 0;
-  /* tetap bisa diraih walau didekati dari luar jendela; busurnya baru tampil saat di-hover */
-  transition:
-    opacity 180ms ease,
-    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.rz-se {
-  bottom: -10px;
-  right: -10px;
-}
-.rz-sw {
-  bottom: -10px;
-  left: -10px;
-}
-/* area tangkap lebih luas dari busurnya */
-.rz-se::after,
-.rz-sw::after {
-  content: '';
-  position: absolute;
-  inset: -10px;
-}
-.rz-arc {
-  width: 32px;
-  height: 32px;
-  display: block;
-  pointer-events: none;
-}
-.stage-window.is-movable:hover .rz-se,
-.stage-window.is-movable:hover .rz-sw,
-.stage-window.is-interacting .rz-se,
-.stage-window.is-interacting .rz-sw {
-  opacity: 0.6;
-}
-.stage-window.is-movable .rz-se:hover,
-.stage-window.is-movable .rz-sw:hover,
-.stage-window.is-interacting .rz-se.is-held,
-.stage-window.is-interacting .rz-sw.is-held {
-  opacity: 1;
-  transform: scale(1.12);
-}
-/* layar sentuh tanpa hover (tablet ≥768 px memakai mode desktop): busur selalu tampil & bisa diraih */
-@media (hover: none) {
-  .stage-window.is-movable .rz-se,
-  .stage-window.is-movable .rz-sw {
-    opacity: 0.6;
-  }
-  .rz-e,
-  .rz-w {
-    width: 18px;
-  }
-  .rz-e {
-    right: -7px;
-  }
-  .rz-w {
-    left: -7px;
-  }
-  .rz-s {
-    height: 18px;
-    bottom: -7px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rz-se,
-  .rz-sw {
-    transition: opacity 120ms ease;
-  }
-  .stage-window.is-movable .rz-se:hover,
-  .stage-window.is-movable .rz-sw:hover,
-  .stage-window.is-interacting .rz-se.is-held,
-  .stage-window.is-interacting .rz-sw.is-held {
-    transform: none;
-  }
+.stage-window.is-split:not(.is-focused) .window-header {
+  opacity: 0.78;
 }
 
-/* ponsel: header jendela aktif bisa di-swipe (bawah = minimize, samping = pindah aplikasi) */
+/* ponsel: header jendela yang tampil bisa di-swipe (bawah = perkecil ke tab, samping = pindah layar) */
 .stage-window.is-swipeable .window-header {
   touch-action: none;
 }
@@ -688,14 +582,9 @@ body {
 .stage-window.is-interacting .window-body iframe {
   pointer-events: none;
 }
-.stage-window.is-interacting,
-html[data-wm-interacting] body {
+.stage-window.is-interacting {
   user-select: none;
   -webkit-user-select: none;
-}
-html[data-wm-interacting],
-html[data-wm-interacting] * {
-  cursor: var(--wm-cursor, default) !important;
 }
 .window-inner {
   border-radius: inherit;

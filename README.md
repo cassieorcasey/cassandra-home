@@ -8,11 +8,11 @@ Live: https://cassieorcasey.github.io/cassandra-home/
 
 - **Launchpad**: sapaan berganti bahasa, judul cassandra.suite dengan garis ombak yang tergambar sekali saat dimuat, dan kartu SPACES. Titik hijau di kartu menandai aplikasi yang sesinya masih hidup.
 - **Tile-to-Window Morph**: jendela tumbuh dari kartu SPACES (atau baris Spotlight) dan menyusut kembali ke kartunya saat ditutup. Bisa dibatalkan di tengah jalan tanpa melompat.
-- **Multitask Bar**: pil di bawah layar berisi tab aplikasi yang sedang berjalan, seperti tab browser. Empat tab per halaman; geser ke kiri/kanan (atau shift + roda) untuk halaman berikutnya. Gulir ke bawah (tarik ke atas di layar sentuh) untuk baris kedua berisi semua aplikasi. Saat aplikasi dibuka dari kartu, ikonnya terbang ke tab barunya bersamaan dengan jendela yang tumbuh. Klik tab untuk berpindah; klik tab yang aktif untuk mengecilkannya. Iframe tidak pernah dimuat ulang saat berpindah.
-- **Jendela desktop**: geser lewat header, ubah ukuran lewat tepi kiri/kanan/bawah dan busur sudut bawah, perluas ke layar penuh.
-- **Ponsel**: jendela penuh layar; swipe header ke bawah untuk mengecilkan ke tab, ke samping untuk pindah aplikasi.
+- **Split Screens**: beberapa aplikasi tampil berdampingan dalam grid otomatis: sampai 4 per layar di desktop/tablet (1 penuh, 2 berdampingan, 3 = satu besar + dua bertumpuk, 4 = 2×2) dan 2 bertumpuk atas-bawah di ponsel. Aplikasi berikutnya membuka layar baru; pindah layar lewat bar, `Ctrl + ←/→`, atau swipe header ke samping di ponsel. Klik jendela (atau di dalam aplikasinya) untuk memfokusnya; tombol ⤢ membuat jendela itu memenuhi layar sementara.
+- **Multitask Bar**: pil di bawah layar berisi tab aplikasi yang sedang berjalan, seperti tab browser. Satu halaman bar = satu layar; geser ke kiri/kanan (atau shift + roda) untuk halaman berikutnya. Gulir ke bawah (tarik ke atas di layar sentuh) untuk baris kedua berisi semua aplikasi. Saat aplikasi dibuka dari kartu, ikonnya terbang ke tab barunya bersamaan dengan jendela yang tumbuh. Klik tab untuk berpindah; klik tab yang aktif untuk mengecilkannya. Iframe tidak pernah dimuat ulang saat berpindah.
+- **Ponsel**: swipe header ke bawah untuk mengecilkan jendela itu ke tab, ke samping untuk pindah layar.
 - **Spotlight** (`⌘/Ctrl + K`): cari aplikasi berdasarkan nama atau fungsi.
-- `Esc` (atau tombol −) mengecilkan jendela ke tab-nya tanpa menutup sesi; tombol × menutup sesi dan jendela pulang ke kartunya.
+- `Esc` (atau tombol −) mengecilkan jendela yang difokus ke tab-nya tanpa menutup sesi; tombol × menutup sesi dan jendela pulang ke kartunya.
 - Dukungan reduced motion (morph diganti crossfade 120 ms), reduced transparency, increased contrast, dan forced colors.
 
 ## Stack
