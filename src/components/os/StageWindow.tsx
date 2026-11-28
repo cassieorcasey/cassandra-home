@@ -31,6 +31,10 @@ interface Props {
   canSwitch: boolean;
   /** Jendela layar tetangga yang mengintip di tepi: klik = pindah ke layarnya. */
   onPeek?: () => void;
+  /** Desktop: header bisa diseret untuk mengatur posisi (ada jendela/layar lain). */
+  arrange: boolean;
+  /** Jendela lain sedang diseret di atas jendela ini: lepas = bertukar tempat. */
+  dropTarget: boolean;
   reduced: boolean;
   wm: WindowActions;
   /** Tombol dari dalam iframe jendela ini (id = jendela asal). */
@@ -51,6 +55,12 @@ const FLICK_SPEED = 0.6; // px/ms: sentakan cepat cukup separuh ambang
 
 interface Gesture {
   pointerId: number;
+  /** titik pegangan di dalam jendela (desktop, atur posisi) */
+  gx: number;
+  gy: number;
+  /** posisi kursor terakhir */
+  cx: number;
+  cy: number;
   sx: number;
   sy: number;
   /** arah yang dikunci setelah SWIPE_LOCK px, null bila belum. */
@@ -62,7 +72,7 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, arrange, dropTarget, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const placed = placement === 'stage';
@@ -76,6 +86,8 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   // ---- geser sementara selama swipe (jendela mengikuti jari)
   const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  /** Desktop: posisi kiri-atas jendela yang sedang diseret (menempel ke titik pegangan kursor). */
+  const [free, setFree] = useState<{ x: number; y: number } | null>(null);
   /** Header sedang diseret (layar mengikuti kursor): iframe tidak boleh mencuri pointer. */
   const [dragging, setDragging] = useState(false);
   const gesture = useRef<Gesture | null>(null);
@@ -84,11 +96,24 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   const onHeaderDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (!swipeable || e.button !== 0 || (e.target as Element).closest(NO_DRAG)) return;
-    // satu-satunya jendela tanpa layar lain di desktop: tidak ada yang bisa diseret
-    if (!mobile && !canSwitch) return;
+    // desktop tanpa jendela/layar lain: tidak ada yang bisa diatur
+    if (!mobile && !arrange) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    gesture.current = { pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, axis: null, dx: 0, dy: 0, t: e.timeStamp, v: 0 };
+    gesture.current = {
+      pointerId: e.pointerId,
+      gx: e.clientX - target.x,
+      gy: e.clientY - target.y,
+      cx: e.clientX,
+      cy: e.clientY,
+      sx: e.clientX,
+      sy: e.clientY,
+      axis: null,
+      dx: 0,
+      dy: 0,
+      t: e.timeStamp,
+      v: 0,
+    };
     setDragging(true);
   };
 
@@ -97,6 +122,18 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     if (!g || e.pointerId !== g.pointerId) return;
     const dx = e.clientX - g.sx;
     const dy = e.clientY - g.sy;
+    g.cx = e.clientX;
+    g.cy = e.clientY;
+    // desktop: atur posisi — jendela mengikuti kursor bebas (dua sumbu)
+    if (!mobile) {
+      if (!g.axis) {
+        if (Math.hypot(dx, dy) < SWIPE_LOCK) return;
+        g.axis = 'x'; // tanda "sudah diseret" (untuk menelan klik susulan)
+      }
+      setFree({ x: e.clientX - g.gx, y: e.clientY - g.gy });
+      wm.dragHover(win.id, e.clientX, e.clientY);
+      return;
+    }
     if (!g.axis) {
       if (Math.hypot(dx, dy) < SWIPE_LOCK) return;
       g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
@@ -122,8 +159,13 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
       // tidak ada klik yang menyusul (mis. pointercancel): jangan telan klik berikutnya yang sungguhan
       window.setTimeout(() => (draggedRef.current = false), 0);
     }
+    if (!mobile) {
+      setFree(null);
+      if (g.axis) wm.dragDrop(win.id, g.cx, g.cy, !commit);
+      return;
+    }
     if (g.axis === 'x') {
-      // geser ke kiri = layar berikutnya, ke kanan = sebelumnya (App memutuskan dari jarak & kecepatan)
+      // ponsel: geser ke kiri = layar berikutnya, ke kanan = sebelumnya (App memutuskan dari jarak & kecepatan)
       wm.endScreenDrag(g.dx, g.v * 1000, !commit);
       return;
     }
@@ -137,9 +179,12 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
   };
 
   // jendela berhenti bisa di-swipe di tengah gesture (Esc, pindah layar): akhiri tanpa aksi
+  const endRef = useRef(end);
   useEffect(() => {
-    if (!swipeable) end(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    endRef.current = end;
+  });
+  useEffect(() => {
+    if (!swipeable && gesture.current) endRef.current(false);
   }, [swipeable]);
 
   // Placeholder tidak boleh menggantung selamanya bila koneksi iframe tak pernah selesai
@@ -173,7 +218,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     }
   };
 
-  const geo = offset ? { ...target, x: target.x + offset.x, y: target.y + offset.y } : target;
+  const geo = free ? { ...target, ...free } : offset ? { ...target, x: target.x + offset.x, y: target.y + offset.y } : target;
   const initial = { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: target.scale, scaleY: target.scale, opacity: 0 };
   // dengan morph kontennya sudah pudar; exit instan agar tak memakai nilai morph milik peluncuran berikutnya
   const exit = { opacity: 0, transition: { duration: morph ? 0 : reduced ? reducedFade : 0.08 } };
@@ -184,7 +229,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   return (
     <motion.section
-      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile || canSwitch) ? 'is-swipeable' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
+      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile ? canSwitch : arrange) ? 'is-swipeable' : ''} ${free ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
       data-app={win.id}
       aria-label={app.name}
       aria-hidden={!placed || undefined}
@@ -215,13 +260,13 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
       }}
       exit={exit}
       transition={
-        offset || collapsed
+        offset || free || collapsed
           ? { duration: 0 }
           : reduced
             ? { duration: reducedFade }
             : { ...spring, opacity: { duration: shown ? 0.14 : 0.08 } }
       }
-      style={{ transformOrigin: '0 0', zIndex: morph || (focused && expanded) ? 31 : placed ? 30 : 20, clipPath: morph ? morph.clip : 'none' }}
+      style={{ transformOrigin: '0 0', zIndex: free ? 33 : morph || (focused && expanded) ? 31 : placed ? 30 : 20, clipPath: morph ? morph.clip : 'none' }}
     >
       <motion.div
         className="window-inner"
@@ -236,7 +281,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
           onPointerCancel={onUp}
           onLostPointerCapture={onUp}
         >
-          {swipeable && (mobile || canSwitch) && <span className="swipe-grabber" aria-hidden />}
+          {swipeable && (mobile ? canSwitch : arrange) && <span className="swipe-grabber" aria-hidden />}
           {/* kontrol jendela sama di desktop & ponsel; di ponsel jendela selalu penuh, jadi tanpa tombol perbesar */}
           <div className="traffic" role="group" aria-label="Kontrol jendela">
             <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>

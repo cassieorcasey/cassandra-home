@@ -35,7 +35,9 @@ export type Action =
   | { type: 'landed'; key: number }
   | { type: 'ready'; id: AppId }
   | { type: 'refresh'; id: AppId }
-  | { type: 'toggleExpand' };
+  | { type: 'toggleExpand' }
+  /** Susun ulang urutan jendela (= urutan tab, dan karena itu isi tiap layar). */
+  | { type: 'reorder'; order: AppId[] };
 
 const withFlight = (s: WMState, id: AppId, mode: Flight['mode'], f: FlightInput): Pick<WMState, 'flight' | 'seq'> =>
   f
@@ -128,6 +130,13 @@ export function reducer(prev: WMState, a: Action): WMState {
       return { ...s, wins: s.wins.map((w) => (w.id === a.id ? { ...w, load: 'loading', nonce: w.nonce + 1 } : w)) };
     case 'toggleExpand':
       return { ...s, expanded: !s.expanded };
+    case 'reorder': {
+      // id yang tidak terbuka diabaikan; jendela yang tidak disebut tetap di belakang, urutan lamanya
+      const rank = new Map(a.order.map((id, i) => [id, i] as const));
+      const at = (w: Win, i: number) => rank.get(w.id) ?? a.order.length + i;
+      const wins = s.wins.map((w, i) => [w, at(w, i)] as const).sort((x, y) => x[1] - y[1]).map(([w]) => w);
+      return { ...s, wins };
+    }
   }
 }
 
@@ -198,6 +207,7 @@ export function useWindowManager() {
       markReady: (id: AppId) => dispatch({ type: 'ready', id }),
       refresh: (id: AppId) => dispatch({ type: 'refresh', id }),
       toggleExpand: () => dispatch({ type: 'toggleExpand' }),
+      reorder: (order: AppId[]) => dispatch({ type: 'reorder', order }),
     }),
     [],
   );
@@ -220,4 +230,8 @@ export interface WindowActions {
   dragScreen: (dx: number) => void;
   /** Seret selesai: pindah layar bila lewat ambang/kecepatan (`v` px/s), selain itu kembali. */
   endScreenDrag: (dx: number, v: number, cancelled: boolean) => void;
+  /** Desktop: jendela `id` sedang diseret, kursor di (x, y): tandai calon tempat & tepi. */
+  dragHover: (id: AppId, x: number, y: number) => void;
+  /** Desktop: seret dilepas di (x, y): tukar dengan jendela di bawah kursor, atau kembali ke slot. */
+  dragDrop: (id: AppId, x: number, y: number, cancelled: boolean) => void;
 }

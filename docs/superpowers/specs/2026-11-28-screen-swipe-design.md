@@ -35,3 +35,12 @@ dua bagian: layar tetangga mengintip dan sensor tepi tanpa jeda.
   header dilepas (browser mengirim pointerenter ke sensor yang muncul di bawah kursor yang diam).
 - **Ponsel:** tombol panah melayang di kiri/kanan.
 - Pil ikon di tepi dan "tepi panas" berjeda dihapus. Animasi buka dan susunan grid kita tetap.
+
+## Revisi: atur posisi jendela (pilihan pengguna: atur posisi + tukar)
+- Desktop: seret header → jendela mengikuti kursor bebas; jendela di bawah kursor ditandai cincin;
+  lepas di atasnya = tukar tempat (urutan tab ikut berubah); lepas di tempat lain = kembali ke slot.
+- Tahan di tepi (52 px, 380 ms; meniru cutefish) = pindah ke layar sebelah, jendela tetap menempel
+  di kursor. Karena layar = potongan urutan (selalu terisi penuh), pindah layar = tukar dengan
+  jendela pertama (ke kanan) / terakhir (ke kiri) layar itu; membuat layar baru dengan menyeret
+  belum didukung.
+- Seret-header-untuk-geser-layar di desktop dihapus; ponsel tidak berubah.

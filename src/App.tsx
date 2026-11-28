@@ -19,6 +19,10 @@ const SCREEN_SPRING = { type: 'spring', stiffness: 420, damping: 38 } as const;
 /** Geser trackpad ke samping sejauh ini (akumulasi deltaX) untuk pindah layar. */
 const WHEEL_SWITCH = 60;
 const WHEEL_LOCK_MS = 500;
+/** Atur posisi (desktop): tahan jendela yang diseret sedekat ini dengan tepi selama ini → pindah layar. */
+const ARRANGE_EDGE = 52;
+const ARRANGE_EDGE_MS = 380;
+
 /** Sensor tepi mengabaikan kursor sesaat setelah layar berpindah atau seretan header dilepas: sensor
  *  yang muncul/berada di bawah kursor saat itu menerima pointerenter dari browser, dan itu bukan
  *  gerakan pengguna menuju tepi. */
@@ -193,6 +197,71 @@ export default function App() {
     dragAnim.current = animate(dragX, 0, reduced ? { duration: 0 } : SCREEN_SPRING);
   };
 
+  // ---- atur posisi (desktop): seret header, lepas di atas jendela lain = tukar; tahan di tepi = pindah layar
+  const [dropTarget, setDropTarget] = useState<AppId | null>(null);
+  const edgeHold = useRef<{ dir: 0 | 1 | -1; timer: number | undefined }>({ dir: 0, timer: undefined });
+  const clearEdgeHold = () => {
+    window.clearTimeout(edgeHold.current.timer);
+    edgeHold.current = { dir: 0, timer: undefined };
+  };
+  /** Jendela lain yang tampil di layar aktif dan berada di bawah titik (x, y). */
+  const windowAt = (id: AppId, x: number, y: number) => {
+    for (const [other, r] of layout(screen)) {
+      if (other !== id && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return other;
+    }
+    return null;
+  };
+  /** Tukar posisi dua app di urutan tab (urutan = isi tiap layar). */
+  const swapOrder = (a: AppId, b: AppId) => {
+    const order = [...tabs];
+    const i = order.indexOf(a);
+    const j = order.indexOf(b);
+    if (i === -1 || j === -1) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    wm.reorder(order);
+  };
+  /**
+   * Pindahkan app ke layar sebelah. Layar = potongan urutan yang selalu penuh, jadi app bertukar dengan
+   * slot pertama layar kanan / slot terakhir layar kiri.
+   */
+  const moveToScreen = (id: AppId, dir: 1 | -1) => {
+    const s = screenOf(id) + dir;
+    if (s < 0 || s >= screens) return;
+    const j = dir > 0 ? s * K : Math.min(s * K + K - 1, tabs.length - 1);
+    swapOrder(id, tabs[j]);
+    setBarPage(s);
+  };
+  const dragHover = (id: AppId, x: number, y: number) => {
+    const s = screenOf(id);
+    const dir: 0 | 1 | -1 = x >= vp.w - ARRANGE_EDGE && s < screens - 1 ? 1 : x <= ARRANGE_EDGE && s > 0 ? -1 : 0;
+    if (dir !== edgeHold.current.dir) {
+      clearEdgeHold();
+      if (dir) {
+        edgeHold.current = {
+          dir,
+          timer: window.setTimeout(() => {
+            edgeHold.current = { dir: 0, timer: undefined };
+            moveRef.current(id, dir);
+          }, ARRANGE_EDGE_MS),
+        };
+      }
+    }
+    const t = dir ? null : windowAt(id, x, y);
+    if (t !== dropTarget) setDropTarget(t);
+  };
+  const moveRef = useRef(moveToScreen);
+  useEffect(() => {
+    moveRef.current = moveToScreen;
+  });
+  const dragDrop = (id: AppId, x: number, y: number, cancelled: boolean) => {
+    clearEdgeHold();
+    setDropTarget(null);
+    sensorQuietFrom.current = performance.now(); // kursor dilepas di dekat tepi: sensor jangan ikut memicu
+    const t = cancelled ? null : windowAt(id, x, y);
+    if (t) swapOrder(id, t);
+    wm.focus(id);
+  };
+
   const actions: WindowActions = {
     close,
     minimize,
@@ -206,6 +275,8 @@ export default function App() {
     switchScreen: (dir) => goScreen(screen + dir),
     dragScreen,
     endScreenDrag,
+    dragHover,
+    dragDrop,
   };
 
   // pintasan dibaca lewat ref agar listener (juga yang dipasang di dalam iframe) selalu memakai state terbaru
@@ -359,7 +430,9 @@ export default function App() {
       {/* lapisan geser layar: semua jendela ikut offset seret; posisi tetap (fixed) jendela tidak berubah */}
       <motion.div className="stage-track" style={{ x: dragX }}>
         <AnimatePresence>
-          {state.wins.map((win) => {
+          {/* urutan DOM tetap (per sesi): menukar urutan tab tidak boleh memindahkan elemen jendela,
+              karena itu memutus pointer capture jendela yang sedang diseret */}
+          {[...state.wins].sort((a, b) => a.session - b.session).map((win) => {
             const morphing = flight && flight.id === win.id ? flight : null;
             let placement: Placement;
             let target;
@@ -389,6 +462,8 @@ export default function App() {
                 mobile={vp.mobile}
                 expanded={state.expanded && win.id === focusedId}
                 canSwitch={screens > 1}
+                arrange={!vp.mobile && tabs.length > 1}
+                dropTarget={dropTarget === win.id}
                 onPeek={!isLive(win) || win.minimized || screenOf(win.id) === screen ? undefined : () => goScreen(screenOf(win.id))}
                 reduced={reduced}
                 wm={actions}

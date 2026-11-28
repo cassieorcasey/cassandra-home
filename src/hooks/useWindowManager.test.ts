@@ -74,3 +74,16 @@ test('focusing or launching another window leaves full-stage mode', () => {
   s = reducer(s, { type: 'launch', id: 'wishy', flight: null });
   expect(s.expanded).toBe(false);
 });
+
+test('reorder rearranges tabs (and so screens) in the given order', () => {
+  let s = open('lemma', 'synthesis', 'conway');
+  s = reducer(s, { type: 'reorder', order: ['conway', 'lemma', 'synthesis'] });
+  expect(tabIds(s)).toEqual(['conway', 'lemma', 'synthesis']);
+  expect(s.activeId).toBe('conway');
+});
+
+test('reorder ignores ids that are not open and keeps unlisted windows at the end', () => {
+  let s = open('lemma', 'synthesis', 'conway');
+  s = reducer(s, { type: 'reorder', order: ['wishy', 'synthesis'] });
+  expect(tabIds(s)).toEqual(['synthesis', 'lemma', 'conway']);
+});

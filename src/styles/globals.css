@@ -947,3 +947,20 @@ body {
   outline: 2px solid var(--ink-2);
   outline-offset: 2px;
 }
+
+/* ---- atur posisi (desktop) ---- */
+.stage-window.is-dragging {
+  box-shadow: 0 30px 70px rgba(43, 37, 44, 0.28);
+}
+.stage-window.is-dragging .window-header {
+  cursor: grabbing;
+}
+.stage-window.is-dragging .window-body iframe {
+  pointer-events: none;
+}
+/* calon tempat jatuh: lepas di sini = bertukar tempat */
+.stage-window.is-drop-target {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ink-2) 70%, transparent),
+    var(--shadow-lg);
+}
