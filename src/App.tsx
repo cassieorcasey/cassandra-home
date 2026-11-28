@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/react';
+import { animate, AnimatePresence, motion, MotionConfig, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Launchpad, type LaunchpadDim } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
@@ -10,8 +10,16 @@ import { useMorph } from './hooks/useMorph';
 import { stageRect, useViewport } from './hooks/useViewport';
 import { isLive, tabIds, useWindowManager, type WindowActions } from './hooks/useWindowManager';
 import { screenLayout } from './lib/screens';
-import { clampPage, pageCount, pageOf, screenCapacity, tabSlotRect, TB_ICON } from './lib/taskbar';
+import { clampPage, nextPageFromSwipe, pageCount, pageOf, screenCapacity, tabSlotRect, TB_ICON } from './lib/taskbar';
+import { AppTile } from './components/ui/AppTile';
+import { Icon } from './components/ui/Icon';
 import type { AppId, Rect, RectSnapshot } from './types/os';
+
+/** Pegas geser layar (sama dengan halaman bar). */
+const SCREEN_SPRING = { type: 'spring', stiffness: 420, damping: 38 } as const;
+/** Geser trackpad ke samping sejauh ini (akumulasi deltaX) untuk pindah layar. */
+const WHEEL_SWITCH = 60;
+const WHEEL_LOCK_MS = 500;
 
 /** Radius jendela: 18 px di desktop, 14 px di ponsel. */
 const WIN_RADIUS = 18;
@@ -159,6 +167,21 @@ export default function App() {
     if (!rest.length) focusEl(`.app-card[data-app="${id}"]`);
   };
 
+  // ---- geser layar dengan kursor/jari: seluruh lapisan jendela mengikuti, lalu berpindah atau kembali
+  const dragX = useMotionValue(0);
+  const dragAnim = useRef<ReturnType<typeof animate> | null>(null);
+  const dragScreen = (dx: number) => {
+    dragAnim.current?.stop();
+    const atEdge = (dx > 0 && screen === 0) || (dx < 0 && screen >= screens - 1);
+    dragX.set(atEdge ? dx * 0.15 : dx); // tahanan karet di ujung
+  };
+  const endScreenDrag = (dx: number, v: number, cancelled: boolean) => {
+    const next = cancelled ? screen : nextPageFromSwipe(screen, tabs.length, dx, vp.w, v, K);
+    if (next !== screen) goScreen(next);
+    // jendela meluncur ke posisi layar barunya sementara offset seret kembali ke 0: geraknya menyambung
+    dragAnim.current = animate(dragX, 0, reduced ? { duration: 0 } : SCREEN_SPRING);
+  };
+
   const actions: WindowActions = {
     close,
     minimize,
@@ -170,6 +193,8 @@ export default function App() {
     },
     markReady: wm.markReady,
     switchScreen: (dir) => goScreen(screen + dir),
+    dragScreen,
+    endScreenDrag,
   };
 
   // pintasan dibaca lewat ref agar listener (juga yang dipasang di dalam iframe) selalu memakai state terbaru
@@ -246,6 +271,57 @@ export default function App() {
     };
   }, []);
 
+  // geser dua jari ke samping di trackpad (di atas header, celah, tepi; di dalam iframe milik app-nya)
+  const wheelAcc = useRef({ sum: 0, lockUntil: 0 });
+  const wheelRef = useRef<(e: WheelEvent) => void>(() => {});
+  useEffect(() => {
+    wheelRef.current = (e: WheelEvent) => {
+      if (screens < 2 || visibleNow.length === 0) return;
+      if ((e.target as Element | null)?.closest?.('.taskbar, .spotlight')) return; // bar punya roda sendiri
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) return;
+      const now = performance.now();
+      if (now < wheelAcc.current.lockUntil) return;
+      wheelAcc.current.sum += e.deltaX;
+      if (Math.abs(wheelAcc.current.sum) >= WHEEL_SWITCH) {
+        goScreen(screen + (wheelAcc.current.sum > 0 ? 1 : -1));
+        wheelAcc.current = { sum: 0, lockUntil: now + WHEEL_LOCK_MS };
+      }
+    };
+  });
+  useEffect(() => {
+    const on = (e: WheelEvent) => wheelRef.current(e);
+    window.addEventListener('wheel', on, { passive: true });
+    return () => window.removeEventListener('wheel', on);
+  }, []);
+
+  /** Penanda tepi (desktop/tablet): ikon app di layar sebelah, klik = pindah layar. */
+  const peek = (side: 'left' | 'right') => {
+    const s = screen + (side === 'right' ? 1 : -1);
+    if (vp.mobile || s < 0 || s >= screens || visibleNow.length === 0) return null;
+    const ids = tabs.slice(s * K, s * K + K);
+    return (
+      <motion.button
+        key={side}
+        type="button"
+        className="screen-peek"
+        data-side={side}
+        aria-label={`Layar ${s + 1}: ${ids.length} aplikasi`}
+        title={side === 'right' ? 'Layar berikutnya (Ctrl + →)' : 'Layar sebelumnya (Ctrl + ←)'}
+        onClick={() => goScreen(s)}
+        initial={{ opacity: 0, x: side === 'right' ? 12 : -12 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: side === 'right' ? 12 : -12 }}
+        transition={{ duration: reduced ? 0.12 : 0.2 }}
+      >
+        {side === 'left' && <Icon name="chevron-left" size={14} />}
+        {ids.map((id) => (
+          <AppTile key={id} id={id} size={18} />
+        ))}
+        {side === 'right' && <Icon name="chevron-right" size={14} />}
+      </motion.button>
+    );
+  };
+
   const flight = state.flight;
   const dim: LaunchpadDim = visibleNow.length === 0 ? 'none' : flight?.phase === 'opening' ? 'dim' : 'away';
 
@@ -257,46 +333,54 @@ export default function App() {
 
       <Launchpad dim={dim} barShown={tabs.length > 0} running={running} reduced={reduced} onLaunch={(id) => launch(id, null)} registerTile={wm.registerTileElement} />
 
+      {/* lapisan geser layar: semua jendela ikut offset seret; posisi tetap (fixed) jendela tidak berubah */}
+      <motion.div className="stage-track" style={{ x: dragX }}>
+        <AnimatePresence>
+          {state.wins.map((win) => {
+            const morphing = flight && flight.id === win.id ? flight : null;
+            let placement: Placement;
+            let target;
+            if (morphing?.phase === 'closing') {
+              // pulang ke kartu/tab: jendela diam di kotak asalnya, proxy yang menyusut
+              placement = 'hidden';
+              const b = morphing.from;
+              target = { x: b.left, y: b.top, w: b.width, h: b.height, scale: 1, opacity: 1 };
+            } else if (!isLive(win) || win.minimized) {
+              placement = 'hidden';
+              // tetap di selnya agar memulihkan dari tab tidak melompat
+              target = { ...cellOf(win.id), scale: 1, opacity: 0 };
+            } else {
+              const s = screenOf(win.id);
+              const cell = cellOf(win.id);
+              // layar lain: di sel layarnya, digeser sejauh lebar viewport per layar (bergeser saat pindah layar)
+              const dx = (s - screen) * vp.w;
+              placement = s === screen ? 'stage' : 'offscreen';
+              target = { ...cell, x: cell.x + dx, scale: 1, opacity: 1 };
+            }
+            return (
+              <StageWindow
+                key={`${win.id}-${win.session}`}
+                win={win}
+                placement={placement}
+                focused={win.id === focusedId}
+                split={visibleNow.length > 1}
+                target={target}
+                morph={morphing ? morph : null}
+                mobile={vp.mobile}
+                expanded={state.expanded && win.id === focusedId}
+                canSwitch={screens > 1}
+                reduced={reduced}
+                wm={actions}
+                onFrameKey={onKey}
+              />
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
+
       <AnimatePresence>
-        {state.wins.map((win) => {
-          const morphing = flight && flight.id === win.id ? flight : null;
-          let placement: Placement;
-          let target;
-          if (morphing?.phase === 'closing') {
-            // pulang ke kartu/tab: jendela diam di kotak asalnya, proxy yang menyusut
-            placement = 'hidden';
-            const b = morphing.from;
-            target = { x: b.left, y: b.top, w: b.width, h: b.height, scale: 1, opacity: 1 };
-          } else if (!isLive(win) || win.minimized) {
-            placement = 'hidden';
-            // tetap di selnya agar memulihkan dari tab tidak melompat
-            target = { ...cellOf(win.id), scale: 1, opacity: 0 };
-          } else {
-            const s = screenOf(win.id);
-            const cell = cellOf(win.id);
-            // layar lain: di sel layarnya, digeser sejauh lebar viewport per layar (bergeser saat pindah layar)
-            const dx = (s - screen) * vp.w;
-            placement = s === screen ? 'stage' : 'offscreen';
-            target = { ...cell, x: cell.x + dx, scale: 1, opacity: 1 };
-          }
-          return (
-            <StageWindow
-              key={`${win.id}-${win.session}`}
-              win={win}
-              placement={placement}
-              focused={win.id === focusedId}
-              split={visibleNow.length > 1}
-              target={target}
-              morph={morphing ? morph : null}
-              mobile={vp.mobile}
-              expanded={state.expanded && win.id === focusedId}
-              canSwitch={screens > 1}
-              reduced={reduced}
-              wm={actions}
-              onFrameKey={onKey}
-            />
-          );
-        })}
+        {peek('left')}
+        {peek('right')}
       </AnimatePresence>
 
       {/* Bar hanya ada selama ada app berjalan: muncul dari bawah saat app pertama dibuka,

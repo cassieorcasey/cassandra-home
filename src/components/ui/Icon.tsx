@@ -6,6 +6,8 @@ const paths = {
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
   external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  'chevron-left': 'M15 6l-6 6 6 6',
+  'chevron-right': 'M9 6l6 6-6 6',
 } as const;
 
 export type IconName = keyof typeof paths;

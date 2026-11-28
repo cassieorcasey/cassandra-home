@@ -27,7 +27,7 @@ interface Props {
   morph: Morph | null;
   mobile: boolean;
   expanded: boolean;
-  /** Ada layar lain: swipe samping di ponsel bisa berpindah layar. */
+  /** Ada layar lain: header bisa diseret ke samping untuk pindah layar (kursor grab). */
   canSwitch: boolean;
   reduced: boolean;
   wm: WindowActions;
@@ -45,7 +45,6 @@ const NO_DRAG = '.traffic, .hdr-actions, button, a';
 /** Gesture header di ponsel: jarak minimal sebelum arah dikunci, dan ambang aksinya. */
 const SWIPE_LOCK = 10;
 const SWIPE_DOWN_MIN = 96; // tarik ke bawah sejauh ini → perkecil ke tab
-const SWIPE_SIDE_MIN = 72; // geser ke samping sejauh ini → pindah layar
 const FLICK_SPEED = 0.6; // px/ms: sentakan cepat cukup separuh ambang
 
 interface Gesture {
@@ -66,21 +65,27 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
   const frameRef = useRef<HTMLIFrameElement>(null);
   const placed = placement === 'stage';
   const loading = win.load === 'loading';
-  /** Di ponsel header setiap jendela yang tampil menerima swipe: bawah = perkecil, samping = pindah layar. */
-  const swipeable = placed && mobile && !morph;
+  /** Header setiap jendela yang tampil bisa diseret: samping = geser seluruh layar (semua perangkat),
+   *  bawah = perkecil (ponsel). */
+  const swipeable = placed && !morph;
   /** Sudah pulang ke kartu/tab lewat morph: sembunyi seketika (konten sudah pudar, permukaan
    *  jendela tidak boleh berkedip sekejap di ukuran penuh saat proxy dilepas). */
   const collapsed = placement === 'hidden' && win.minimized && !reduced && !morph;
 
   // ---- geser sementara selama swipe (jendela mengikuti jari)
   const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  /** Header sedang diseret (layar mengikuti kursor): iframe tidak boleh mencuri pointer. */
+  const [dragging, setDragging] = useState(false);
   const gesture = useRef<Gesture | null>(null);
 
   const onHeaderDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (!swipeable || e.button !== 0 || (e.target as Element).closest(NO_DRAG)) return;
+    // satu-satunya jendela tanpa layar lain di desktop: tidak ada yang bisa diseret
+    if (!mobile && !canSwitch) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     gesture.current = { pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, axis: null, dx: 0, dy: 0, t: e.timeStamp, v: 0 };
+    setDragging(true);
   };
 
   const onMove = (e: ReactPointerEvent<HTMLElement>) => {
@@ -97,8 +102,9 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     g.t = e.timeStamp;
     g.dx = dx;
     g.dy = dy;
-    // ke atas dan ke samping tanpa layar lain diberi tahanan karet
-    setOffset(g.axis === 'y' ? { x: 0, y: dy > 0 ? dy : dy * 0.15 } : { x: dx * (canSwitch ? 0.6 : 0.15), y: 0 });
+    if (g.axis === 'x') wm.dragScreen(dx);
+    // tarik ke bawah (ponsel) memindahkan jendela ini saja; ke atas diberi tahanan karet
+    else if (mobile) setOffset({ x: 0, y: dy > 0 ? dy : dy * 0.15 });
   };
 
   const end = (commit: boolean) => {
@@ -106,16 +112,14 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     if (!g) return;
     gesture.current = null;
     setOffset(null);
-    if (!commit) return;
-    if (g.axis === 'y' && (g.dy > SWIPE_DOWN_MIN || (g.dy > SWIPE_DOWN_MIN / 2 && g.v > FLICK_SPEED))) {
+    setDragging(false);
+    if (g.axis === 'x') {
+      // geser ke kiri = layar berikutnya, ke kanan = sebelumnya (App memutuskan dari jarak & kecepatan)
+      wm.endScreenDrag(g.dx, g.v * 1000, !commit);
+      return;
+    }
+    if (commit && mobile && g.axis === 'y' && (g.dy > SWIPE_DOWN_MIN || (g.dy > SWIPE_DOWN_MIN / 2 && g.v > FLICK_SPEED))) {
       wm.minimize(win.id);
-    } else if (
-      canSwitch &&
-      g.axis === 'x' &&
-      (Math.abs(g.dx) > SWIPE_SIDE_MIN || (Math.abs(g.dx) > SWIPE_SIDE_MIN / 2 && Math.abs(g.v) > FLICK_SPEED))
-    ) {
-      // geser ke kiri = layar berikutnya, ke kanan = sebelumnya
-      wm.switchScreen(g.dx < 0 ? 1 : -1);
     }
   };
 
@@ -171,7 +175,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   return (
     <motion.section
-      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable ? 'is-swipeable' : ''} ${offset ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
+      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile || canSwitch) ? 'is-swipeable' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
       data-app={win.id}
       aria-label={app.name}
       aria-hidden={!placed || undefined}
@@ -216,7 +220,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
           onPointerCancel={onUp}
           onLostPointerCapture={onUp}
         >
-          {swipeable && <span className="swipe-grabber" aria-hidden />}
+          {swipeable && (mobile || canSwitch) && <span className="swipe-grabber" aria-hidden />}
           {/* kontrol jendela sama di desktop & ponsel; di ponsel jendela selalu penuh, jadi tanpa tombol perbesar */}
           <div className="traffic" role="group" aria-label="Kontrol jendela">
             <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>

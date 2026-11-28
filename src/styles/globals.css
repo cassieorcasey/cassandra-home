@@ -874,3 +874,59 @@ body {
   }
 }
 
+
+/* ---- Screen Swipe ----
+   Lapisan semua jendela; ikut offset seret header (x). Kotak penuh di (0,0), jadi posisi
+   jendela (fixed) tidak berubah walau lapisan ini membentuk containing block. Di atas proxy morph (25). */
+.stage-track {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.stage-track .stage-window:not(.is-hidden) {
+  pointer-events: auto;
+}
+/* header bisa diseret ke samping (pindah layar) */
+.stage-window.is-swipeable .window-header {
+  cursor: grab;
+}
+.stage-window.is-interacting .window-header {
+  cursor: grabbing;
+}
+/* penanda tepi: ikon app di layar sebelah, di celah 24 px tepi stage */
+.screen-peek {
+  position: fixed;
+  z-index: 35;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 22px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-border), var(--shadow);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.screen-peek[data-side='right'] {
+  right: 1px;
+}
+.screen-peek[data-side='left'] {
+  left: 1px;
+}
+.screen-peek .app-tile {
+  border-radius: 5px;
+}
+.screen-peek:hover {
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink-3), var(--shadow);
+}
+.screen-peek:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
