@@ -7,12 +7,12 @@ Live: https://cassieorcasey.github.io/cassandra-home/
 ## Fitur
 
 - **Launchpad**: sapaan berganti bahasa, judul cassandra.suite dengan garis ombak yang tergambar sekali saat dimuat, dan kartu SPACES. Titik hijau di kartu menandai aplikasi yang sesinya masih hidup.
-- **Tile-to-Window Morph**: jendela tumbuh dari kartu SPACES (atau baris Spotlight) dan menyusut kembali ke kartunya saat ditutup atau dikecilkan. Bisa dibatalkan di tengah jalan tanpa melompat.
-- **Center Stage + Side Stage Strip** (desktop): jendela lain mengecil ke strip kiri; klik kartunya untuk menukar fokus. Iframe tidak pernah dimuat ulang saat berpindah.
+- **Tile-to-Window Morph**: jendela tumbuh dari kartu SPACES (atau baris Spotlight) dan menyusut kembali ke kartunya saat ditutup. Bisa dibatalkan di tengah jalan tanpa melompat.
+- **Multitask Bar**: pil di bawah layar berisi tab aplikasi yang sedang berjalan, seperti tab browser. Empat tab per halaman; geser ke kiri/kanan (atau shift + roda) untuk halaman berikutnya. Gulir ke bawah (tarik ke atas di layar sentuh) untuk baris kedua berisi semua aplikasi. Saat aplikasi dibuka dari kartu, ikonnya terbang ke tab barunya bersamaan dengan jendela yang tumbuh. Klik tab untuk berpindah; klik tab yang aktif untuk mengecilkannya. Iframe tidak pernah dimuat ulang saat berpindah.
 - **Jendela desktop**: geser lewat header, ubah ukuran lewat tepi kiri/kanan/bawah dan busur sudut bawah, perluas ke layar penuh.
-- **Ponsel**: jendela penuh layar; swipe header ke bawah untuk kembali ke Launchpad, ke samping untuk pindah aplikasi.
+- **Ponsel**: jendela penuh layar; swipe header ke bawah untuk mengecilkan ke tab, ke samping untuk pindah aplikasi.
 - **Spotlight** (`⌘/Ctrl + K`): cari aplikasi berdasarkan nama atau fungsi.
-- `Esc` (atau tombol −) mengembalikan jendela ke Launchpad tanpa menutup sesinya; tombol × menutup sesi.
+- `Esc` (atau tombol −) mengecilkan jendela ke tab-nya tanpa menutup sesi; tombol × menutup sesi dan jendela pulang ke kartunya.
 - Dukungan reduced motion (morph diganti crossfade 120 ms), reduced transparency, increased contrast, dan forced colors.
 
 ## Stack
@@ -28,4 +28,5 @@ Daftarkan di `src/config/apps.config.ts` dan taruh ikon tanpa latar di `public/i
 ```bash
 npm install
 npm run dev
+npm test        # uji logika (Vitest)
 ```

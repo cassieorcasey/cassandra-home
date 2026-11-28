@@ -10,7 +10,7 @@ import type { Rect } from '../../types/os';
 import { WINDOW_MORPH } from '../../config/motion';
 import type { Morph } from '../../hooks/useMorph';
 
-export type Placement = 'stage' | 'deck' | 'hidden';
+export type Placement = 'stage' | 'hidden';
 
 interface Props {
   win: Win;
@@ -24,8 +24,6 @@ interface Props {
   canCycle: boolean;
   /** Viewport saat ini; dipakai pembatas geometri selama drag/resize. */
   vp: Viewport;
-  /** Batas kiri jendela saat Side Stage Strip tampil (undefined = margin biasa). */
-  stripLeft?: number;
   reduced: boolean;
   wm: WindowActions;
   onFrameKey: (e: KeyboardEvent) => void;
@@ -76,7 +74,7 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, target, morph, mobile, expanded, canCycle, vp, stripLeft, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, target, morph, mobile, expanded, canCycle, vp, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const active = placement === 'stage';
@@ -153,14 +151,14 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
           ? { ...s, y: s.y + (dy > 0 ? dy : dy * 0.15) }
           : { ...s, x: s.x + dx * (canCycle ? 0.6 : 0.15) };
     } else if (g.kind === 'move') {
-      next = clampWindowRect({ ...s, x: s.x + dx, y: s.y + dy }, vp, undefined, stripLeft);
+      next = clampWindowRect({ ...s, x: s.x + dx, y: s.y + dy }, vp);
     } else {
       const k = g.kind;
       const left = s.x + (k.includes('w') ? dx : 0);
       const top = s.y + (k.includes('n') ? dy : 0);
       const right = s.x + s.w + (k.includes('e') ? dx : 0);
       const bottom = s.y + s.h + (k.includes('s') ? dy : 0);
-      next = clampWindowRect({ x: left, y: top, w: right - left, h: bottom - top }, vp, k, stripLeft);
+      next = clampWindowRect({ x: left, y: top, w: right - left, h: bottom - top }, vp, k);
     }
     liveRef.current = next;
     setLive(next);
@@ -269,7 +267,7 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
 
   return (
     <motion.section
-      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'deck' ? 'is-deck' : ''} ${placement === 'hidden' ? 'is-hidden' : ''} ${interactive ? 'is-movable' : ''} ${swipeable ? 'is-swipeable' : ''} ${busy ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
+      className={`stage-window ${active ? 'is-active' : ''} ${placement === 'hidden' ? 'is-hidden' : ''} ${interactive ? 'is-movable' : ''} ${swipeable ? 'is-swipeable' : ''} ${busy ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
       aria-label={app.name}
       aria-hidden={placement === 'hidden' || undefined}
       inert={placement === 'hidden'}
@@ -317,7 +315,7 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
             <button type="button" className="tl tl-close" aria-label="Tutup" title="Tutup" onClick={() => wm.close(win.id)}>
               <Icon name="close" size={16} />
             </button>
-            <button type="button" className="tl tl-min" aria-label="Kembali ke Launchpad" title="Kembali ke Launchpad (Esc)" onClick={wm.minimize}>
+            <button type="button" className="tl tl-min" aria-label="Perkecil ke bar" title="Perkecil ke bar (Esc)" onClick={wm.minimize}>
               <Icon name="minus" size={16} />
             </button>
             {!mobile && (
@@ -416,13 +414,6 @@ export function StageWindow({ win, placement, target, morph, mobile, expanded, c
           </span>
         ))}
 
-      {placement === 'deck' && (
-        <button type="button" className="deck-hit" aria-label={`Pindah ke ${app.name}`} onClick={() => wm.focus(win.id)}>
-          <span className="deck-label" style={{ fontSize: 13 / target.scale, padding: `${4 / target.scale}px ${10 / target.scale}px` }}>
-            {app.name}
-          </span>
-        </button>
-      )}
     </motion.section>
   );
 }

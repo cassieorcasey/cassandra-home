@@ -10,7 +10,7 @@ export interface CassandraApp {
   featured?: boolean;
 }
 
-/** Geometri jendela (posisi kiri-atas + ukuran), dipakai stage, drag/resize, dan Side Stage Strip. */
+/** Geometri jendela (posisi kiri-atas + ukuran), dipakai stage dan drag/resize. */
 export interface Rect { x: number; y: number; w: number; h: number }
 
 /** Potret elemen di layar untuk morph: kotak viewport plus radius sudutnya. */

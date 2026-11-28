@@ -16,7 +16,7 @@ const SAFETY_MS = 1400;
 
 /**
  * Lapisan proxy morph (portal ke <body>). Duduk di bawah jendela aktif dan di atas Launchpad
- * & Side Stage Strip: jendela yang terpotong `clip` memudar masuk/keluar di atasnya, proxy
+ * dan di bawah Multitask Bar: jendela yang terpotong `clip` memudar masuk/keluar di atasnya, proxy
  * menyediakan permukaan dan ikon aplikasi.
  */
 export function FlightLayer({ flight, morph, onLanded }: Props) {

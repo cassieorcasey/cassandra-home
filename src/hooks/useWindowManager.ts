@@ -7,13 +7,13 @@ export interface Win {
   id: AppId;
   load: 'loading' | 'ready';
   nonce: number; // naik saat Refresh agar iframe dimuat ulang
-  /** Di-collapse ke Launchpad: sesi iframe tetap hidup di latar (titik di kartu SpaceCard). */
+  /** Diperkecil ke tab-nya di Multitask Bar: sesi iframe tetap hidup di latar. */
   minimized: boolean;
   /** Naik setiap aplikasi dibuka dari keadaan tertutup. Dipakai sebagai key jendela agar
    *  pembukaan ulang saat animasi tutup masih berjalan selalu memasang iframe baru. */
   session: number;
-  /** Geometri hasil drag/resize di desktop. Bertahan selama di Side Stage Strip atau
-   *  di-collapse; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
+  /** Geometri hasil drag/resize di desktop. Bertahan selama
+   *  diperkecil; hilang bersama entri jendela saat ditutup. Kosong = pakai stageRect. */
   rect?: Rect;
   /** opening/closing selama morph berjalan; jendela 'closing' masih dirender sampai morph mendarat. */
   phase: WindowTransitionPhase;
@@ -22,7 +22,6 @@ export interface Win {
 export interface WMState {
   wins: Win[]; // urutan dibuka
   activeId: AppId | null;
-  deck: AppId[]; // aplikasi latar belakang karena berpindah (Side Stage Strip), terbaru di depan
   expanded: boolean;
   flight: Flight | null;
   seq: number;
@@ -31,7 +30,7 @@ export interface WMState {
 
 type FlightInput = Omit<Flight, 'key' | 'id' | 'phase' | 'mode'> | null;
 
-type Action =
+export type Action =
   | { type: 'launch'; id: AppId; flight: FlightInput }
   | { type: 'focus'; id: AppId }
   | { type: 'minimize'; flight: FlightInput }
@@ -47,13 +46,12 @@ const withFlight = (s: WMState, id: AppId, mode: Flight['mode'], f: FlightInput)
     ? { flight: { ...f, id, mode, phase: mode === 'open' ? 'opening' : 'closing', key: s.seq + 1 }, seq: s.seq + 1 }
     : { flight: null, seq: s.seq };
 
-const sendActiveToDeck = (s: WMState, except: AppId) =>
-  [s.activeId, ...s.deck].filter((x): x is AppId => !!x && x !== except);
-
 /** Sedang dalam morph tutup (bukan collapse): sesinya dibuang begitu mendarat. */
 const isDying = (w: Win) => w.phase === 'closing' && !w.minimized;
 /** Jendela yang masih hidup (bukan sedang ditutup). */
 export const isLive = (w: Win) => !isDying(w);
+/** Tab di Multitask Bar: aplikasi berjalan (terbuka atau diperkecil), urut waktu dibuka. */
+export const tabIds = (s: WMState): AppId[] => s.wins.filter(isLive).map((w) => w.id);
 
 /** Selesaikan morph yang sedang berjalan seolah sudah mendarat. */
 function settle(s: WMState): WMState {
@@ -66,7 +64,7 @@ function settle(s: WMState): WMState {
   return { ...s, flight: null, wins };
 }
 
-function reducer(prev: WMState, a: Action): WMState {
+export function reducer(prev: WMState, a: Action): WMState {
   // Morph baru untuk aplikasi lain menggantikan yang lama: yang lama dituntaskan dulu, supaya
   // tidak ada jendela yang tertahan di fase opening/closing. Morph aplikasi yang sama dilanjutkan
   // dari posisi live-nya (interupsi) oleh FlightLayer.
@@ -87,7 +85,6 @@ function reducer(prev: WMState, a: Action): WMState {
           ? wins.map((w) => (w.id === a.id ? { ...w, minimized: false, phase } : w))
           : [...wins, { id: a.id, load: 'loading', nonce: 0, minimized: false, session: s.sessions + 1, phase }],
         sessions: exists ? s.sessions : s.sessions + 1,
-        deck: sendActiveToDeck(s, a.id),
         activeId: a.id,
       };
     }
@@ -96,7 +93,6 @@ function reducer(prev: WMState, a: Action): WMState {
       return {
         ...s,
         wins: s.wins.map((w) => (w.id === a.id ? { ...w, minimized: false, phase: 'open' } : w)),
-        deck: sendActiveToDeck(s, a.id),
         activeId: a.id,
         flight: null,
       };
@@ -121,7 +117,6 @@ function reducer(prev: WMState, a: Action): WMState {
         wins: animate
           ? s.wins.map((w) => (w.id === a.id ? { ...w, phase: 'closing' } : w))
           : s.wins.filter((w) => w.id !== a.id),
-        deck: s.deck.filter((x) => x !== a.id),
         activeId: wasActive ? null : s.activeId,
         expanded: wasActive ? false : s.expanded,
       };
@@ -139,7 +134,7 @@ function reducer(prev: WMState, a: Action): WMState {
   }
 }
 
-const initial: WMState = { wins: [], activeId: null, deck: [], expanded: false, flight: null, seq: 0, sessions: 0 };
+export const initial: WMState = { wins: [], activeId: null, expanded: false, flight: null, seq: 0, sessions: 0 };
 
 /**
  * Potret elemen dalam koordinat "istirahat" Launchpad. Saat jendela terbuka, .launchpad
@@ -181,6 +176,21 @@ export function useWindowManager() {
     return el && el.isConnected ? restSnapshot(el) : null;
   }, []);
 
+  // ---- registry ikon tab di Multitask Bar: target morph minimize dan ikon terbang
+  const tabElements = useRef(new Map<AppId, HTMLElement>());
+  const registerTabElement = useCallback((id: AppId, el: HTMLElement | null) => {
+    if (el) tabElements.current.set(id, el);
+    else tabElements.current.delete(id);
+  }, []);
+  /** Rect ikon tab saat ini (koordinat layar) atau null bila tab belum/tidak terpasang. */
+  const getTabRect = useCallback((id: AppId): RectSnapshot | null => {
+    const el = tabElements.current.get(id);
+    if (!el || !el.isConnected) return null;
+    const r = el.getBoundingClientRect();
+    const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+    return { top: r.top, left: r.left, width: r.width, height: r.height, borderRadius: radius };
+  }, []);
+
   const actions = useMemo(
     () => ({
       launch: (id: AppId, flight: FlightInput = null) => dispatch({ type: 'launch', id, flight }),
@@ -195,13 +205,13 @@ export function useWindowManager() {
     }),
     [],
   );
-  return { state, registerTileElement, getTileRect, ...actions };
+  return { state, registerTileElement, getTileRect, registerTabElement, getTabRect, ...actions };
 }
 
 /** Aksi yang dipakai StageWindow; App membungkusnya dengan perhitungan rect morph. */
 export interface WindowActions {
   close: (id: AppId) => void;
-  /** Collapse ke Launchpad: jendela pulang ke kartunya, sesi iframe tetap hidup. */
+  /** Perkecil ke tab-nya di Multitask Bar: sesi iframe tetap hidup. */
   minimize: () => void;
   focus: (id: AppId) => void;
   refresh: (id: AppId) => void;

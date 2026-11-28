@@ -188,15 +188,14 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
   overflow-y: auto;
   z-index: 10;
-  /* tanpa dok: cukup jarak napas + indikator Home */
-  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  transition: padding-left 0.35s cubic-bezier(0.2, 0, 0, 1);
+  /* ruang untuk Multitask Bar (88 px = BAR_RESERVED) + jarak napas + indikator Home */
+  padding-bottom: calc(88px + 24px + env(safe-area-inset-bottom, 0px));
 }
 /* Hero terpusat (tata letak mengikuti referensi): sapaan, judul + ombak, ajakan, kartu aplikasi */
 .hero {
-  /* judul diskalakan terhadap lebar hero (bukan viewport): strip kiri 236 px ikut dihitung */
+  /* judul diskalakan terhadap lebar hero (bukan viewport) */
   container-type: inline-size;
-  min-height: calc(100svh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100svh - 24px - 88px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   max-width: 1048px;
   margin-inline: auto;
   padding: clamp(32px, 7vh, 72px) 24px 24px;
@@ -513,9 +512,6 @@ body {
   box-shadow: var(--shadow-lg);
   will-change: transform;
 }
-.stage-window.is-deck {
-  box-shadow: var(--shadow);
-}
 /* jendela yang di-minimize tak terlihat (opacity 0) tapi masih menutupi Home: jangan tangkap klik/scroll */
 .stage-window.is-hidden {
   pointer-events: none;
@@ -533,7 +529,7 @@ body {
 }
 
 /* ---- Tile-to-Window Morph: proxy permukaan + ikon (portal ke <body>) ----
-   Di atas Launchpad (10) & Side Stage Strip (20), di bawah jendela aktif (30). */
+   Di atas Launchpad (10), di bawah jendela aktif (30) dan Multitask Bar (40). */
 .flight-layer {
   position: fixed;
   inset: 0;
@@ -827,26 +823,6 @@ html[data-wm-interacting] * {
   .frame-placeholder .app-tile {
     animation: none;
   }
-}
-.deck-hit {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: transparent;
-}
-.deck-hit:hover {
-  background: color-mix(in srgb, var(--lilac) 18%, transparent);
-}
-.deck-label {
-  margin-bottom: 6%;
-  border-radius: 999px;
-  background: var(--glass-bg);
-  border: 1px solid var(--card-border);
-  font-weight: 600;
 }
 .preview-card {
   height: 100%;

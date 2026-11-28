@@ -1,0 +1,199 @@
+/* ---- Multitask Bar ----
+   Pil melayang di tengah bawah, di atas jendela (30) dan proxy morph (25).
+   Tinggi 64 px = BAR_H; stage menyisakan 88 px (BAR_RESERVED) di bawah. */
+.taskbar {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 24px;
+  background: var(--surface);
+  /* garis tepi lewat bayangan (tanpa border) supaya geometri persis tabSlotRect() */
+  box-shadow: 0 0 0 1px var(--card-border), var(--shadow-lg);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.tb-viewport {
+  height: 64px;
+  /* clip (bukan hidden): wadah ini tidak boleh bisa di-scroll oleh focus() pada tab di luar halaman */
+  overflow: clip;
+  /* ruang untuk penanda aktif di bawah ikon tanpa memotongnya */
+  margin: 0 -2px;
+  padding: 0 2px;
+  box-sizing: content-box;
+}
+.tb-rows {
+  display: flex;
+  flex-direction: column;
+}
+.tb-row {
+  height: 64px;
+  display: flex;
+  align-items: center;
+}
+.tb-track {
+  display: flex;
+  gap: 14px;
+}
+.tb-tab,
+.tb-launch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 13px;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.tb-tab:hover,
+.tb-launch:hover {
+  transform: translateY(-3px);
+}
+.tb-tab:active,
+.tb-launch:active {
+  transform: translateY(-1px) scale(0.96);
+}
+.tb-tab:focus-visible,
+.tb-launch:focus-visible,
+.tb-hint:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 3px;
+}
+.tb-icon {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  pointer-events: none;
+}
+/* semua tab di latar (diperkecil maupun ditinggal berpindah) redup sama */
+.tb-tab:not([aria-current='true']) .tb-icon {
+  opacity: 0.62;
+}
+/* ikon tab baru disembunyikan sampai ikon terbang mendarat di sini */
+.tb-tab[data-arriving] .tb-icon,
+.tb-tab[data-arriving] .tb-ind {
+  visibility: hidden;
+}
+.tb-ind,
+.tb-dot {
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink-3);
+}
+.tb-tab[aria-current='true'] .tb-ind {
+  width: 16px;
+  margin-left: -8px;
+  background: var(--ink);
+}
+.tb-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.tb-pages i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  opacity: 0.45;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.tb-pages i[data-on] {
+  opacity: 1;
+  transform: scale(1.2);
+}
+/* pegangan kecil di tepi atas: menandakan ada baris kedua (klik = ganti baris) */
+.tb-hint {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 28px;
+  height: 8px;
+  margin-left: -14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.tb-hint::before {
+  content: '';
+  position: absolute;
+  inset: 2px 0;
+  border-radius: 2px;
+  background: var(--ink-3);
+  opacity: 0.5;
+}
+.tb-label {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-tab,
+  .tb-launch {
+    transition: none;
+  }
+}
+
+/* ikon yang terbang dari tile ke tab: di atas jendela dan bar */
+.icon-flight {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+.icon-flight-tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  will-change: transform;
+}
+/* peluncuran dari baris 2: ikon memantul sebelum jendela morph dari situ */
+.tb-launch[data-bounce] .tb-icon {
+  animation: tb-bounce 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes tb-bounce {
+  50% {
+    transform: scale(1.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-launch[data-bounce] .tb-icon {
+    animation: none;
+  }
+  /* tanpa ikon terbang: tab baru muncul dengan crossfade */
+  .tb-tab {
+    animation: tb-fade 120ms ease-out;
+  }
+}
+@keyframes tb-fade {
+  from {
+    opacity: 0;
+  }
+}

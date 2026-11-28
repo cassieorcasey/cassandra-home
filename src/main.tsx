@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
+import './styles/taskbar.css';
 
 // Probe frame: median 60 frame pertama > 24ms → mode hemat (tanpa blur, kilau, ripple)
 if (typeof window !== 'undefined') {

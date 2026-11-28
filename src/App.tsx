@@ -3,10 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Launchpad, type LaunchpadDim } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
+import { TaskBar } from './components/os/TaskBar';
 import { FlightLayer } from './components/stage/FlightLayer';
+import { IconFlight, type IconFlightSpec } from './components/stage/IconFlight';
 import { useMorph } from './hooks/useMorph';
-import { clampWindowRect, deckSlot, stageRect, STRIP_LEFT_LIMIT, STRIP_RESERVED, useViewport } from './hooks/useViewport';
-import { isLive, useWindowManager, type Win, type WindowActions } from './hooks/useWindowManager';
+import { clampWindowRect, stageRect, useViewport } from './hooks/useViewport';
+import { isLive, tabIds, useWindowManager, type Win, type WindowActions } from './hooks/useWindowManager';
+import { clampPage, pageOf, tabSlotRect, TB_ICON } from './lib/taskbar';
 import type { AppId, Rect, RectSnapshot } from './types/os';
 
 /** Radius jendela di stage: 18 px di desktop, 0 di ponsel (penuh layar). */
@@ -21,18 +24,24 @@ export default function App() {
   const [spotlight, setSpotlight] = useState(false);
 
   const live = state.wins.filter(isLive);
+  const tabs = tabIds(state);
+  const minimizedSet = new Set(live.filter((w) => w.minimized).map((w) => w.id));
+  // Multitask Bar: baris 1 = tab, baris 2 = peluncur (dipaksa saat belum ada tab)
+  const [barRow, setBarRow] = useState<0 | 1>(0);
+  const [barPage, setBarPage] = useState(0);
+  const row: 0 | 1 = tabs.length === 0 ? 1 : barRow;
+  const page = clampPage(barPage, tabs.length);
+  // ikon yang terbang dari tile ke tab baru; tab tujuan menyembunyikan ikonnya sampai mendarat
+  const [iconFlight, setIconFlight] = useState<IconFlightSpec | null>(null);
   const running = new Set(live.map((w) => w.id));
   const hasActive = state.activeId !== null;
 
   const stage = stageRect(vp, state.expanded);
   const normalStage = stageRect(vp, false);
-  const deckOnDesktop = !vp.mobile && state.deck.length > 0;
-  /** Strip kiri tampil (desktop, tidak expanded): jendela tidak boleh digeser menutupinya. */
-  const stripLeft = deckOnDesktop && !state.expanded ? STRIP_LEFT_LIMIT : undefined;
 
   /** Geometri jendela di desktop non-expanded: Rect kustom (dijepit ke viewport saat ini) atau stage normal. */
   const customRect = (w: Win | undefined) =>
-    w?.rect ? clampWindowRect(w.rect, vp, undefined, stripLeft) : normalStage;
+    w?.rect ? clampWindowRect(w.rect, vp) : normalStage;
   /** Rect yang benar-benar ditempati jendela saat aktif di stage. */
   const effectiveRect = (id: AppId) =>
     vp.mobile || state.expanded ? stage : customRect(state.wins.find((w) => w.id === id));
@@ -61,28 +70,61 @@ export default function App() {
       ),
     );
 
-  const launch = (id: AppId, origin: RectSnapshot | null) => {
+  /** Ikon berukuran `size` di tengah rect `r` (ikon di dalam kartu / baris Spotlight). */
+  const iconIn = (r: RectSnapshot, size: number): RectSnapshot => ({
+    left: r.left + (r.width - size) / 2,
+    top: r.top + (r.height - size) / 2,
+    width: size,
+    height: size,
+    borderRadius: 0,
+  });
+
+  /**
+   * Buka aplikasi. `source`: dari kartu Launchpad / Spotlight, tab baru mendapat ikon yang terbang
+   * ke slot-nya; dari bar (tab atau baris peluncur) tidak, karena asalnya sudah di bar.
+   */
+  const launch = (id: AppId, origin: RectSnapshot | null, source: 'tile' | 'spotlight' | 'bar' = 'tile') => {
+    // bar menampilkan halaman tempat tab app ini berada (tab baru = di ujung)
+    const known = tabs.indexOf(id);
+    const idx = known === -1 ? tabs.length : known;
+    const p = pageOf(idx);
+    setBarPage(p);
+    setBarRow(0);
     if (state.activeId === id) return;
-    // jendela yang sedang tampil di Side Stage Strip cukup ditukar ke stage
-    const win = state.wins.find((w) => w.id === id);
-    if (!vp.mobile && !state.expanded && state.deck.includes(id) && win && !win.minimized && isLive(win)) {
-      wm.focus(id);
-      return;
-    }
     if (reduced) {
       wm.launch(id, null); // crossfade 120 ms oleh jendela sendiri
       return;
     }
     const from = origin ?? wm.getTileRect(id) ?? centerFallback();
+    if (known === -1 && source !== 'bar') {
+      const start = source === 'tile' ? iconIn(from, 68) : iconIn(from, TB_ICON);
+      setIconFlight({ key: performance.now(), id, from: start, to: tabSlotRect(vp, tabs.length + 1, idx, p) });
+    }
     wm.launch(id, { from, to: snap(effectiveRect(id)), fade: false });
   };
 
-  /** Collapse ke Launchpad: sesi iframe tetap hidup (titik di kartu), jendela pulang ke kartunya. */
+  /** Fokus keyboard ke tab aplikasi di Multitask Bar (setelah bar pindah baris/halaman). */
+  const focusTab = (id: AppId) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(`.tb-tab[data-app="${id}"]`)?.focus({ preventScroll: true }),
+      ),
+    );
+
+  /**
+   * Perkecil ke tab: bar dipindah ke baris tab & halaman tab ini, dan jendela morph ke posisi
+   * akhir ikon tab (dihitung dari tata letak, jadi morph dan animasi bar berjalan bersamaan).
+   * Sesi iframe tetap hidup.
+   */
   const collapse = () => {
     const id = state.activeId;
     if (!id) return;
-    wm.minimize(reduced ? null : homeFlight(id));
-    focusCard(id);
+    const idx = Math.max(tabs.indexOf(id), 0);
+    const p = pageOf(idx);
+    setBarRow(0);
+    setBarPage(p);
+    wm.minimize(reduced ? null : { from: snap(effectiveRect(id)), to: tabSlotRect(vp, tabs.length, idx, p), fade: false });
+    focusTab(id);
   };
   const close = (id: AppId) => {
     const wasActive = state.activeId === id;
@@ -102,7 +144,9 @@ export default function App() {
       const ids = live.map((w) => w.id);
       const i = ids.indexOf(id);
       if (i === -1 || ids.length < 2) return;
-      wm.focus(ids[(i + dir + ids.length) % ids.length]);
+      const j = (i + dir + ids.length) % ids.length;
+      setBarPage(pageOf(tabs.indexOf(ids[j])));
+      wm.focus(ids[j]);
     },
   };
 
@@ -138,7 +182,6 @@ export default function App() {
 
       <Launchpad
         dim={dim}
-        padLeft={deckOnDesktop ? STRIP_RESERVED : 0}
         running={running}
         reduced={reduced}
         onLaunch={(id) => launch(id, null)}
@@ -149,7 +192,6 @@ export default function App() {
         {state.wins.map((win) => {
           const active = win.id === state.activeId;
           const morphing = flight && flight.id === win.id ? flight : null;
-          const deckIndex = state.deck.indexOf(win.id);
           let placement: Placement;
           let target;
           if (active) {
@@ -160,11 +202,6 @@ export default function App() {
             placement = 'hidden';
             const b = morphing.from;
             target = { x: b.left, y: b.top, w: b.width, h: b.height, scale: 1, opacity: 1 };
-          } else if (!vp.mobile && !state.expanded && deckIndex !== -1 && deckIndex <= 3 && !win.minimized) {
-            // strip menampilkan 4 kartu; sisanya 'hidden' supaya .deck-hit tak terpasang (klik/Tab)
-            placement = 'deck';
-            const slot = deckSlot(vp, deckIndex, state.deck.length);
-            target = { x: slot.x, y: slot.y, w: normalStage.w, h: normalStage.h, scale: slot.scale, opacity: 1 };
           } else {
             placement = 'hidden';
             // tetap di Rect kustomnya agar membuka lagi dari kartu tidak melompat
@@ -181,7 +218,6 @@ export default function App() {
               expanded={state.expanded}
               canCycle={live.length > 1}
               vp={vp}
-              stripLeft={stripLeft}
               reduced={reduced}
               wm={actions}
               onFrameKey={onKey}
@@ -190,7 +226,23 @@ export default function App() {
         })}
       </AnimatePresence>
 
+      <TaskBar
+        tabs={tabs}
+        activeId={state.activeId}
+        minimized={minimizedSet}
+        row={row}
+        page={page}
+        onRow={setBarRow}
+        onPage={setBarPage}
+        onTab={(id) => (id === state.activeId ? collapse() : launch(id, wm.getTabRect(id), 'bar'))}
+        onLaunch={(id, origin) => launch(id, origin, 'bar')}
+        arriving={iconFlight?.id ?? null}
+        registerTab={wm.registerTabElement}
+        reduced={reduced}
+      />
+
       <FlightLayer flight={flight} morph={morph} onLanded={wm.landed} />
+      <IconFlight flight={iconFlight} onDone={(key) => setIconFlight((f) => (f && f.key === key ? null : f))} />
 
       <AnimatePresence>
         {spotlight && (
@@ -199,7 +251,7 @@ export default function App() {
             onClose={() => setSpotlight(false)}
             onLaunch={(id, origin) => {
               setSpotlight(false);
-              launch(id, origin);
+              launch(id, origin, 'spotlight');
             }}
           />
         )}

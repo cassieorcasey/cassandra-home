@@ -12,13 +12,12 @@ import { SpaceCard } from './SpaceCard';
  * - 'none': tampil penuh (tidak ada jendela aktif).
  * - 'dim': redup tipis (0.65, skala 0.98) selama morph membuka, memberi fokus ke jendela.
  * - 'away': tersembunyi setelah jendela mendarat, supaya tidak bertabrakan dengan
- *   Side Stage Strip atau jendela desktop yang ukurannya diubah.
+ *   jendela desktop yang ukurannya diubah.
  */
 export type LaunchpadDim = 'none' | 'dim' | 'away';
 
 interface Props {
   dim: LaunchpadDim;
-  padLeft: number;
   running: Set<string>;
   reduced: boolean;
   onLaunch: (id: AppId) => void;
@@ -86,7 +85,7 @@ function Split({ text, delay = 160, gradient = false }: { text: string; delay?: 
   );
 }
 
-export function Launchpad({ dim, padLeft, running, reduced, onLaunch, registerTile }: Props) {
+export function Launchpad({ dim, running, reduced, onLaunch, registerTile }: Props) {
   const hidden = dim !== 'none';
   // fitur unggulan di depan, sisanya mengikuti urutan registri
   const ordered = [...apps.filter((a) => a.featured), ...apps.filter((a) => !a.featured)];
@@ -103,7 +102,6 @@ export function Launchpad({ dim, padLeft, running, reduced, onLaunch, registerTi
           ? { duration: WINDOW_MORPH.reducedFadeMs / 1000 }
           : { duration: (hidden ? WINDOW_MORPH.openMs : WINDOW_MORPH.closeMs) / 1000, ease: [0.2, 0, 0, 1] }
       }
-      style={{ paddingLeft: padLeft }}
     >
       <section className="hero">
         <p className="greeting enter" style={{ '--d': '60ms' } as React.CSSProperties}>
