@@ -9,7 +9,7 @@ import { IconFlight, type IconFlightSpec } from './components/stage/IconFlight';
 import { useMorph } from './hooks/useMorph';
 import { stageRect, useViewport } from './hooks/useViewport';
 import { isLive, tabIds, useWindowManager, type WindowActions } from './hooks/useWindowManager';
-import { screenFrame, screenLayout, screenShift, type PeekSpec } from './lib/screens';
+import { clampRatio, EVEN, screenFrame, screenLayout, screenShift, splitLines, type PeekSpec, type SplitLine, type SplitRatios } from './lib/screens';
 import { clampPage, nextPageFromSwipe, pageCount, pageOf, screenCapacity, tabSlotRect, TB_ICON } from './lib/taskbar';
 import { Icon } from './components/ui/Icon';
 import type { AppId, Rect, RectSnapshot } from './types/os';
@@ -27,6 +27,9 @@ const ARRANGE_EDGE_MS = 380;
  *  yang muncul/berada di bawah kursor saat itu menerima pointerenter dari browser, dan itu bukan
  *  gerakan pengguna menuju tepi. */
 const SENSOR_SETTLE_MS = 450;
+/** Ukuran minimum sel saat garis pembatas diseret. */
+const MIN_SPLIT = { w: 320, h: 200 };
+
 /** Radius jendela: 18 px di desktop, 14 px di ponsel. */
 const WIN_RADIUS = 18;
 const WIN_RADIUS_MOBILE = 14;
@@ -70,12 +73,39 @@ export default function App() {
 
   /** Layar tetangga mengintip di tepi saat ada lebih dari satu layar (54 px desktop, 24 px ponsel). */
   const peekSpec: PeekSpec = vp.mobile ? { w: vp.w, peek: 24, gap: 8, margin: 8 } : { w: vp.w, peek: 54, gap: 12, margin: 24 };
+  // ---- atur ukuran: rasio garis pembatas per layar, dan ukuran bebas jendela tunggal per layar
+  const [ratios, setRatios] = useState<Record<number, SplitRatios>>({});
+  /** Ukuran bebas jendela tunggal, relatif terhadap bingkai layarnya. */
+  const [custom, setCustom] = useState<Record<number, Rect>>({});
+  /** Garis pembatas sedang diseret: jendela ikut seketika & iframe tidak mencuri pointer. */
+  const [resizing, setResizing] = useState(false);
+  /** Lepaskan ukuran bebas layar-layar ini (jendela kedua masuk / urutan berubah). */
+  const dropCustom = (...ss: number[]) =>
+    setCustom((c) => {
+      if (!ss.some((s) => s in c)) return c;
+      const next = { ...c };
+      for (const s of ss) delete next[s];
+      return next;
+    });
+
+  const frameOf = (s: number, list: AppId[] = tabs, cur: number = screen) => screenFrame(stage, peekSpec, s, pageCount(list.length, K), cur);
   /**
    * Layout layar `s` untuk urutan tab & himpunan diperkecil tertentu, dalam koordinat viewport saat
-   * layar `cur` tampil (layar lain bergeser ke samping; tetangganya mengintip di tepi).
+   * layar `cur` tampil (layar lain bergeser ke samping; tetangganya mengintip di tepi). Memakai rasio
+   * garis pembatas layar itu; jendela tunggal memakai ukuran bebasnya bila ada (desktop).
    */
-  const layout = (s: number, list: AppId[] = tabs, min: Set<AppId> = minimizedSet, cur: number = screen) =>
-    screenLayout(list, min, s, K, screenFrame(stage, peekSpec, s, pageCount(list.length, K), cur), gap);
+  const layout = (s: number, list: AppId[] = tabs, min: Set<AppId> = minimizedSet, cur: number = screen) => {
+    const frame = frameOf(s, list, cur);
+    const m = screenLayout(list, min, s, K, frame, gap, ratios[s] ?? EVEN);
+    const c = custom[s];
+    if (m.size === 1 && c && !vp.mobile) {
+      const [id] = m.keys();
+      const w = Math.min(c.w, frame.w - c.x);
+      const h = Math.min(c.h, frame.h - c.y);
+      m.set(id, { x: frame.x + c.x, y: frame.y + c.y, w, h });
+    }
+    return m;
+  };
   const without = (set: Set<AppId>, id: AppId) => new Set([...set].filter((x) => x !== id));
   const screenOf = (id: AppId, list: AppId[] = tabs) => pageOf(Math.max(list.indexOf(id), 0), K);
   /** Sel jendela `id` bila tampil (diperkecil pun dihitung seolah tampil). */
@@ -125,6 +155,13 @@ export default function App() {
    * Launchpad / Spotlight, tab baru mendapat ikon yang terbang ke slot-nya; dari bar tidak.
    */
   const launch = (id: AppId, origin: RectSnapshot | null, source: 'tile' | 'spotlight' | 'bar' = 'tile') => {
+    // jendela baru / yang dipulihkan bergabung dengan jendela lain di layarnya: ukuran bebas jendela
+    // tunggal di sana dilepas (memulihkan satu-satunya jendela layar itu tetap memakai ukurannya)
+    {
+      const at = pageOf(tabs.indexOf(id) === -1 ? tabs.length : tabs.indexOf(id), K);
+      const others = [...layout(at).keys()].filter((x) => x !== id);
+      if (!live.some((w) => w.id === id && !w.minimized) && others.length > 0) dropCustom(at);
+    }
     const known = tabs.indexOf(id);
     const list = known === -1 ? [...tabs, id] : tabs;
     const idx = known === -1 ? tabs.length : known;
@@ -219,6 +256,7 @@ export default function App() {
     if (i === -1 || j === -1) return;
     [order[i], order[j]] = [order[j], order[i]];
     wm.reorder(order);
+    dropCustom(pageOf(i, K), pageOf(j, K));
   };
   /**
    * Pindahkan app ke layar sebelah. Layar = potongan urutan yang selalu penuh, jadi app bertukar dengan
@@ -277,6 +315,11 @@ export default function App() {
     endScreenDrag,
     dragHover,
     dragDrop,
+    setCustomSize: (id, r) => {
+      const s = screenOf(id);
+      const f = frameOf(s);
+      setCustom((c) => ({ ...c, [s]: { x: r.x - f.x, y: r.y - f.y, w: r.w, h: r.h } }));
+    },
   };
 
   // pintasan dibaca lewat ref agar listener (juga yang dipasang di dalam iframe) selalu memakai state terbaru
@@ -416,6 +459,18 @@ export default function App() {
     );
   };
 
+  // garis pembatas layar aktif (2+ jendela tampil, tidak sedang memenuhi layar)
+  const lines: SplitLine[] =
+    !state.expanded && visibleNow.length >= 2 ? splitLines(frameOf(screen), visibleNow.length, gap, ratios[screen] ?? EVEN) : [];
+  const splitDrag = useRef<SplitLine | null>(null);
+  const setRatio = (key: keyof SplitRatios, r: number) =>
+    setRatios((all) => ({ ...all, [screen]: { ...(all[screen] ?? EVEN), [key]: r } }));
+  const endSplit = () => {
+    if (!splitDrag.current) return;
+    splitDrag.current = null;
+    setResizing(false);
+  };
+
   const flight = state.flight;
   const dim: LaunchpadDim = visibleNow.length === 0 ? 'none' : flight?.phase === 'opening' ? 'dim' : 'away';
 
@@ -428,7 +483,7 @@ export default function App() {
       <Launchpad dim={dim} barShown={tabs.length > 0} running={running} reduced={reduced} onLaunch={(id) => launch(id, null)} registerTile={wm.registerTileElement} />
 
       {/* lapisan geser layar: semua jendela ikut offset seret; posisi tetap (fixed) jendela tidak berubah */}
-      <motion.div className="stage-track" style={{ x: dragX }}>
+      <motion.div className={resizing ? 'stage-track is-resizing' : 'stage-track'} style={{ x: dragX }}>
         <AnimatePresence>
           {/* urutan DOM tetap (per sesi): menukar urutan tab tidak boleh memindahkan elemen jendela,
               karena itu memutus pointer capture jendela yang sedang diseret */}
@@ -463,6 +518,9 @@ export default function App() {
                 expanded={state.expanded && win.id === focusedId}
                 canSwitch={screens > 1}
                 arrange={!vp.mobile && tabs.length > 1}
+                resizable={!vp.mobile && !state.expanded && visibleNow.length === 1 && visibleNow[0] === win.id}
+                bounds={frameOf(screenOf(win.id))}
+                instant={resizing}
                 dropTarget={dropTarget === win.id}
                 onPeek={!isLive(win) || win.minimized || screenOf(win.id) === screen ? undefined : () => goScreen(screenOf(win.id))}
                 reduced={reduced}
@@ -473,6 +531,36 @@ export default function App() {
           })}
         </AnimatePresence>
       </motion.div>
+
+      {lines.map((l) => (
+        <div
+          key={l.key}
+          className="split-line"
+          data-key={l.key}
+          data-axis={l.axis}
+          role="separator"
+          aria-orientation={l.axis === 'x' ? 'vertical' : 'horizontal'}
+          aria-label="Ubah ukuran jendela (klik dua kali: rata)"
+          style={{ left: l.rect.x, top: l.rect.y, width: l.rect.w, height: l.rect.h }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            splitDrag.current = l;
+            setResizing(true);
+          }}
+          onPointerMove={(e) => {
+            const d = splitDrag.current;
+            if (!d || d.key !== l.key) return;
+            const p = d.axis === 'x' ? e.clientX : e.clientY;
+            setRatio(d.key, clampRatio((p - gap / 2 - d.origin) / d.span, d.span, d.axis === 'x' ? MIN_SPLIT.w : MIN_SPLIT.h));
+          }}
+          onPointerUp={endSplit}
+          onPointerCancel={endSplit}
+          onLostPointerCapture={endSplit}
+          onDoubleClick={() => setRatio(l.key, 0.5)}
+        />
+      ))}
 
       {edgeControl('left')}
       {edgeControl('right')}

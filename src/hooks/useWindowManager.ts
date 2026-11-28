@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer, useRef } from 'react';
-import type { AppId, Flight, RectSnapshot, WindowTransitionPhase } from '../types/os';
+import type { AppId, Flight, Rect, RectSnapshot, WindowTransitionPhase } from '../types/os';
 
 export type { Rect } from '../types/os';
 
@@ -234,4 +234,6 @@ export interface WindowActions {
   dragHover: (id: AppId, x: number, y: number) => void;
   /** Desktop: seret dilepas di (x, y): tukar dengan jendela di bawah kursor, atau kembali ke slot. */
   dragDrop: (id: AppId, x: number, y: number, cancelled: boolean) => void;
+  /** Ukuran bebas jendela tunggal di layarnya (hasil pegangan tepi/sudut), koordinat viewport. */
+  setCustomSize: (id: AppId, rect: Rect) => void;
 }

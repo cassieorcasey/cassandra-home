@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { appById } from '../../config/apps.config';
 import type { Win, WindowActions } from '../../hooks/useWindowManager';
-import type { AppId } from '../../types/os';
+import type { AppId, Rect } from '../../types/os';
+import { resizeRect, type ResizeEdge } from '../../lib/screens';
 import { AppTile } from '../ui/AppTile';
 import { WINDOW_MORPH } from '../../config/motion';
 import type { Morph } from '../../hooks/useMorph';
@@ -35,6 +36,12 @@ interface Props {
   arrange: boolean;
   /** Jendela lain sedang diseret di atas jendela ini: lepas = bertukar tempat. */
   dropTarget: boolean;
+  /** Desktop, satu-satunya jendela di layarnya: tepi & sudut bisa ditarik untuk mengubah ukuran. */
+  resizable: boolean;
+  /** Bingkai layar jendela ini (batas ukuran bebas). */
+  bounds: Rect;
+  /** Garis pembatas sedang diseret: ikuti target seketika, tanpa pegas. */
+  instant: boolean;
   reduced: boolean;
   wm: WindowActions;
   /** Tombol dari dalam iframe jendela ini (id = jendela asal). */
@@ -44,6 +51,11 @@ interface Props {
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
 const reducedFade = WINDOW_MORPH.reducedFadeMs / 1000;
 const LOAD_TIMEOUT_MS = 15000;
+
+const EDGES: ResizeEdge[] = ['e', 'w', 's', 'se', 'sw'];
+const CURSOR: Record<ResizeEdge, string> = { e: 'ew-resize', w: 'ew-resize', s: 'ns-resize', se: 'nwse-resize', sw: 'nesw-resize' };
+/** Busur di sudut bawah (pegangan sudut yang terlihat). */
+const ARC: Partial<Record<ResizeEdge, string>> = { se: 'M 6 30 A 24 24 0 0 0 30 6', sw: 'M 30 30 A 24 24 0 0 1 6 6' };
 
 /** Target di header yang tetap berfungsi sebagai tombol, bukan pegangan swipe. */
 const NO_DRAG = '.traffic, .hdr-actions, button, a';
@@ -72,7 +84,7 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, arrange, dropTarget, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, arrange, dropTarget, resizable, bounds, instant, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const placed = placement === 'stage';
@@ -86,6 +98,33 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   // ---- geser sementara selama swipe (jendela mengikuti jari)
   const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  // ---- ubah ukuran jendela tunggal lewat tepi/sudut: geometri live selama seret, disimpan saat dilepas
+  const [live, setLive] = useState<Rect | null>(null);
+  const [held, setHeld] = useState<ResizeEdge | null>(null);
+  const resize = useRef<{ id: number; edge: ResizeEdge; sx: number; sy: number; start: Rect } | null>(null);
+  const onResizeDown = (e: ReactPointerEvent<HTMLElement>, edge: ResizeEdge) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resize.current = { id: e.pointerId, edge, sx: e.clientX, sy: e.clientY, start: { x: target.x, y: target.y, w: target.w, h: target.h } };
+    setHeld(edge);
+    if (!focused) wm.focus(win.id);
+  };
+  const onResizeMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const r = resize.current;
+    if (!r || r.id !== e.pointerId) return;
+    setLive(resizeRect(r.start, r.edge, e.clientX - r.sx, e.clientY - r.sy, bounds));
+  };
+  const onResizeUp = (e: ReactPointerEvent<HTMLElement>) => {
+    const r = resize.current;
+    if (!r || r.id !== e.pointerId) return;
+    resize.current = null;
+    setHeld(null);
+    if (live) wm.setCustomSize(win.id, live);
+    setLive(null);
+  };
+
   /** Desktop: posisi kiri-atas jendela yang sedang diseret (menempel ke titik pegangan kursor). */
   const [free, setFree] = useState<{ x: number; y: number } | null>(null);
   /** Header sedang diseret (layar mengikuti kursor): iframe tidak boleh mencuri pointer. */
@@ -218,7 +257,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     }
   };
 
-  const geo = free ? { ...target, ...free } : offset ? { ...target, x: target.x + offset.x, y: target.y + offset.y } : target;
+  const geo = live ? { ...target, ...live } : free ? { ...target, ...free } : offset ? { ...target, x: target.x + offset.x, y: target.y + offset.y } : target;
   const initial = { x: target.x, y: target.y, width: target.w, height: target.h, scaleX: target.scale, scaleY: target.scale, opacity: 0 };
   // dengan morph kontennya sudah pudar; exit instan agar tak memakai nilai morph milik peluncuran berikutnya
   const exit = { opacity: 0, transition: { duration: morph ? 0 : reduced ? reducedFade : 0.08 } };
@@ -229,7 +268,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   return (
     <motion.section
-      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile ? canSwitch : arrange) ? 'is-swipeable' : ''} ${free ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
+      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile ? canSwitch : arrange) ? 'is-swipeable' : ''} ${free ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${resizable ? 'is-resizable' : ''} ${live ? 'is-interacting' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
       data-app={win.id}
       aria-label={app.name}
       aria-hidden={!placed || undefined}
@@ -260,7 +299,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
       }}
       exit={exit}
       transition={
-        offset || free || collapsed
+        offset || free || live || instant || collapsed
           ? { duration: 0 }
           : reduced
             ? { duration: reducedFade }
@@ -363,6 +402,27 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
         </div>
       </motion.div>
 
+      {resizable &&
+        placed &&
+        !morph &&
+        EDGES.map((edge) => (
+          <span
+            key={edge}
+            className={`rz rz-${edge} ${held === edge ? 'is-held' : ''}`}
+            aria-hidden
+            style={{ cursor: CURSOR[edge] }}
+            onPointerDown={(e) => onResizeDown(e, edge)}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeUp}
+            onPointerCancel={onResizeUp}
+          >
+            {ARC[edge] && (
+              <svg className="rz-arc" viewBox="0 0 36 36">
+                <path d={ARC[edge]} stroke="currentColor" strokeWidth={5} strokeLinecap="round" fill="none" />
+              </svg>
+            )}
+          </span>
+        ))}
     </motion.section>
   );
 }
