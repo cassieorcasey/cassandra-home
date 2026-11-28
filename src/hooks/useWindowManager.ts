@@ -226,6 +226,8 @@ export interface WindowActions {
   markReady: (id: AppId) => void;
   /** Pindah ke layar berikutnya (1) atau sebelumnya (-1); diam di ujung. */
   switchScreen: (dir: 1 | -1) => void;
+  /** Pindah ke layar `s` (mis. klik jendela yang mengintip di tepi). */
+  goToScreen: (s: number) => void;
   /** Header diseret ke samping sejauh `dx`: seluruh layar mengikuti. */
   dragScreen: (dx: number) => void;
   /** Seret selesai: pindah layar bila lewat ambang/kecepatan (`v` px/s), selain itu kembali. */

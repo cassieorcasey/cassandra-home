@@ -1,5 +1,7 @@
 import { animate, AnimatePresence, motion, MotionConfig, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePerfLite } from './hooks/usePerfLite';
+import { useStable } from './hooks/useStable';
 import { Launchpad, type LaunchpadDim } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
 import { StageWindow, type Placement } from './components/os/StageWindow';
@@ -39,15 +41,18 @@ export default function App() {
   const { state } = wm;
   const vp = useViewport();
   const reduced = !!useReducedMotion();
+  const lite = usePerfLite(); // perangkat lambat: jendela tetap morph, ikon terbang dilewati
   const morph = useMorph();
   const [spotlight, setSpotlight] = useState(false);
 
-  const live = state.wins.filter(isLive);
-  const tabs = tabIds(state);
+  // turunan state.wins dimemo: identitasnya tetap selama jendela tidak berubah (komponen ber-memo tidak render)
+  const live = useMemo(() => state.wins.filter(isLive), [state.wins]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tabs = useMemo(() => tabIds(state), [state.wins]);
   /** Kapasitas layar (4 desktop/tablet, 2 ponsel) = tab per halaman bar. */
   const K = screenCapacity(vp.mobile);
   const gap = vp.mobile ? 8 : 12;
-  const minimizedSet = new Set(live.filter((w) => w.minimized).map((w) => w.id));
+  const minimizedSet = useMemo(() => new Set(live.filter((w) => w.minimized).map((w) => w.id)), [live]);
   // Multitask Bar: baris 1 = tab, baris 2 = peluncur (dipaksa saat belum ada tab)
   const [barRow, setBarRow] = useState<0 | 1>(0);
   const [barPage, setBarPage] = useState(0);
@@ -65,7 +70,7 @@ export default function App() {
   const screens = pageCount(tabs.length, K);
   // ikon yang terbang dari tile ke tab baru; tab tujuan menyembunyikan ikonnya sampai mendarat
   const [iconFlight, setIconFlight] = useState<IconFlightSpec | null>(null);
-  const running = new Set(live.map((w) => w.id));
+  const running = useMemo(() => new Set(live.map((w) => w.id)), [live]);
 
   const stage = stageRect(vp, false);
   /** Area "penuhi layar" untuk jendela yang di-expand. */
@@ -179,7 +184,7 @@ export default function App() {
       return;
     }
     const from = origin ?? wm.getTileRect(id) ?? centerFallback();
-    if (known === -1 && source !== 'bar') {
+    if (known === -1 && source !== 'bar' && !lite) {
       const start = source === 'tile' ? iconIn(from, 68) : iconIn(from, TB_ICON);
       setIconFlight({ key: performance.now(), id, from: start, to: tabSlotRect(vp, list.length, idx, s, K) });
     }
@@ -300,7 +305,7 @@ export default function App() {
     wm.focus(id);
   };
 
-  const actions: WindowActions = {
+  const actionsNow: WindowActions = {
     close,
     minimize,
     focus: wm.focus,
@@ -311,6 +316,7 @@ export default function App() {
     },
     markReady: wm.markReady,
     switchScreen: (dir) => goScreen(screen + dir),
+    goToScreen: (s) => goScreen(s),
     dragScreen,
     endScreenDrag,
     dragHover,
@@ -321,6 +327,27 @@ export default function App() {
       setCustom((c) => ({ ...c, [s]: { x: r.x - f.x, y: r.y - f.y, w: r.w, h: r.h } }));
     },
   };
+
+  // objek aksi tetap: setiap metode memanggil versi terbaru (StageWindow ber-memo tidak render karena ini)
+  const actionsRef = useRef(actionsNow);
+  useEffect(() => {
+    actionsRef.current = actionsNow;
+  });
+  const [actions] = useState<WindowActions>(() => ({
+    close: (id) => actionsRef.current.close(id),
+    minimize: (id) => actionsRef.current.minimize(id),
+    focus: (id) => actionsRef.current.focus(id),
+    refresh: (id) => actionsRef.current.refresh(id),
+    toggleExpand: (id) => actionsRef.current.toggleExpand(id),
+    markReady: (id) => actionsRef.current.markReady(id),
+    switchScreen: (dir) => actionsRef.current.switchScreen(dir),
+    goToScreen: (s) => actionsRef.current.goToScreen(s),
+    dragScreen: (dx) => actionsRef.current.dragScreen(dx),
+    endScreenDrag: (dx, v, c) => actionsRef.current.endScreenDrag(dx, v, c),
+    dragHover: (id, x, y) => actionsRef.current.dragHover(id, x, y),
+    dragDrop: (id, x, y, c) => actionsRef.current.dragDrop(id, x, y, c),
+    setCustomSize: (id, r) => actionsRef.current.setCustomSize(id, r),
+  }));
 
   // pintasan dibaca lewat ref agar listener (juga yang dipasang di dalam iframe) selalu memakai state terbaru
   const keyRef = useRef<(e: KeyboardEvent, from?: AppId) => void>(() => {});
@@ -350,7 +377,7 @@ export default function App() {
       }
     };
   });
-  const onKey = (e: KeyboardEvent, from?: AppId) => keyRef.current(e, from);
+  const onKey = useStable((e: KeyboardEvent, from?: AppId) => keyRef.current(e, from));
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => keyRef.current(e);
@@ -463,13 +490,33 @@ export default function App() {
   const lines: SplitLine[] =
     !state.expanded && visibleNow.length >= 2 ? splitLines(frameOf(screen), visibleNow.length, gap, ratios[screen] ?? EVEN) : [];
   const splitDrag = useRef<SplitLine | null>(null);
+  const splitPending = useRef<{ key: keyof SplitRatios; r: number } | null>(null);
+  const splitRaf = useRef(0);
   const setRatio = (key: keyof SplitRatios, r: number) =>
     setRatios((all) => ({ ...all, [screen]: { ...(all[screen] ?? EVEN), [key]: r } }));
   const endSplit = () => {
     if (!splitDrag.current) return;
     splitDrag.current = null;
+    cancelAnimationFrame(splitRaf.current);
+    splitRaf.current = 0;
+    const q = splitPending.current;
+    splitPending.current = null;
+    if (q) setRatio(q.key, q.r);
     setResizing(false);
   };
+
+  // callback stabil untuk Launchpad & TaskBar (keduanya ber-memo)
+  const launchFromCard = useStable((id: AppId) => launch(id, null));
+  const launchFromBar = useStable((id: AppId, origin: RectSnapshot) => launch(id, origin, 'bar'));
+  const goScreenStable = useStable((s: number) => goScreen(s));
+  const onTab = useStable((id: AppId) => {
+    if (id === focusedId) minimize(id);
+    else if (minimizedSet.has(id)) launch(id, wm.getTabRect(id), 'bar');
+    else {
+      setBarPage(screenOf(id));
+      wm.focus(id);
+    }
+  });
 
   const flight = state.flight;
   const dim: LaunchpadDim = visibleNow.length === 0 ? 'none' : flight?.phase === 'opening' ? 'dim' : 'away';
@@ -480,7 +527,7 @@ export default function App() {
       <div id="safe-probe-top" aria-hidden />
       <div id="safe-probe" aria-hidden />
 
-      <Launchpad dim={dim} barShown={tabs.length > 0} running={running} reduced={reduced} onLaunch={(id) => launch(id, null)} registerTile={wm.registerTileElement} />
+      <Launchpad dim={dim} barShown={tabs.length > 0} running={running} reduced={reduced} onLaunch={launchFromCard} registerTile={wm.registerTileElement} />
 
       {/* lapisan geser layar: semua jendela ikut offset seret; posisi tetap (fixed) jendela tidak berubah */}
       <motion.div className={resizing ? 'stage-track is-resizing' : 'stage-track'} style={{ x: dragX }}>
@@ -522,7 +569,7 @@ export default function App() {
                 bounds={frameOf(screenOf(win.id))}
                 instant={resizing}
                 dropTarget={dropTarget === win.id}
-                onPeek={!isLive(win) || win.minimized || screenOf(win.id) === screen ? undefined : () => goScreen(screenOf(win.id))}
+                peekTo={!isLive(win) || win.minimized || screenOf(win.id) === screen ? null : screenOf(win.id)}
                 reduced={reduced}
                 wm={actions}
                 onFrameKey={onKey}
@@ -553,7 +600,15 @@ export default function App() {
             const d = splitDrag.current;
             if (!d || d.key !== l.key) return;
             const p = d.axis === 'x' ? e.clientX : e.clientY;
-            setRatio(d.key, clampRatio((p - gap / 2 - d.origin) / d.span, d.span, d.axis === 'x' ? MIN_SPLIT.w : MIN_SPLIT.h));
+            // digabung per frame: pointermove bisa datang lebih sering dari frame layar
+            splitPending.current = { key: d.key, r: clampRatio((p - gap / 2 - d.origin) / d.span, d.span, d.axis === 'x' ? MIN_SPLIT.w : MIN_SPLIT.h) };
+            if (!splitRaf.current) {
+              splitRaf.current = requestAnimationFrame(() => {
+                splitRaf.current = 0;
+                const q = splitPending.current;
+                if (q) setRatio(q.key, q.r);
+              });
+            }
           }}
           onPointerUp={endSplit}
           onPointerCancel={endSplit}
@@ -585,16 +640,9 @@ export default function App() {
               page={screen}
               perPage={K}
               onRow={setBarRow}
-              onPage={goScreen}
-              onTab={(id) => {
-                if (id === focusedId) minimize(id);
-                else if (minimizedSet.has(id)) launch(id, wm.getTabRect(id), 'bar');
-                else {
-                  setBarPage(screenOf(id));
-                  wm.focus(id);
-                }
-              }}
-              onLaunch={(id, origin) => launch(id, origin, 'bar')}
+              onPage={goScreenStable}
+              onTab={onTab}
+              onLaunch={launchFromBar}
               arriving={iconFlight?.id ?? null}
               registerTab={wm.registerTabElement}
               reduced={reduced}

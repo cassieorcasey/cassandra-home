@@ -137,13 +137,13 @@ body {
 :root[data-perf='lite'] .wallpaper::after {
   display: none;
 }
+:root[data-perf='lite'] .ch {
+  animation: none;
+}
 :root[data-perf='lite'] .glass {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   background: var(--surface);
-}
-:root[data-perf='lite'] .flight-shell {
-  box-shadow: var(--shadow);
 }
 
 /* ============ Glass (hanya lapisan mengambang) ============ */
@@ -230,6 +230,7 @@ body {
   padding: 0 0.1em;
 }
 .greeting-word {
+  grid-area: 1 / 1;
   display: inline-block;
   white-space: nowrap;
   font-family: var(--font-display), 'Hiragino Sans', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans SC', system-ui, sans-serif;
@@ -544,17 +545,15 @@ body {
 }
 .flight-shell {
   position: fixed;
-  left: 0;
-  top: 0;
-  display: grid;
-  place-items: center;
   overflow: hidden;
   background: var(--surface);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-lg);
-  will-change: transform, width, height;
+  /* tanpa border/bayangan: clip-path memotongnya; bentuk bergerak hanya lewat clip (cat ulang murah) */
+  will-change: clip-path;
 }
 .flight-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: grid;
 }
 

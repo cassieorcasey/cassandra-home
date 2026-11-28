@@ -2,7 +2,7 @@ import { animate, AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { WINDOW_MORPH } from '../../config/motion';
-import type { Morph } from '../../hooks/useMorph';
+import { union, type Morph } from '../../hooks/useMorph';
 import type { Flight } from '../../types/os';
 import { AppTile } from '../ui/AppTile';
 
@@ -36,26 +36,16 @@ export function FlightLayer({ flight, morph, onLanded }: Props) {
     const continuing = !!prev && prev.id === flight.id && prev.key !== flight.key;
     running.current = { id: flight.id, key: flight.key };
 
-    morph.box.set(opening ? flight.to : flight.from);
-    if (!continuing) {
-      morph.left.jump(flight.from.left);
-      morph.top.jump(flight.from.top);
-      morph.width.jump(flight.from.width);
-      morph.height.jump(flight.from.height);
-      morph.radius.jump(flight.from.borderRadius);
-      morph.content.jump(opening ? 0 : 1);
-    }
+    const box = opening ? flight.to : flight.from;
+    // lanjutan: berangkat dari rect yang terlihat sekarang (tanpa lompatan), progres mulai lagi dari 0
+    const start = continuing ? morph.current() : flight.from;
+    morph.t.jump(0);
+    morph.setup(start, flight.to, box, union(flight.from, flight.to));
+    if (!continuing) morph.content.jump(opening ? 0 : 1);
     morph.proxy.jump(1);
 
     const spring = opening ? WINDOW_MORPH.open : WINDOW_MORPH.close;
-    const to = flight.to;
-    const moves = [
-      animate(morph.left, to.left, spring),
-      animate(morph.top, to.top, spring),
-      animate(morph.width, to.width, spring),
-      animate(morph.height, to.height, spring),
-      animate(morph.radius, to.borderRadius, spring),
-    ];
+    const move = animate(morph.t, 1, spring);
     // konten: buka → muncul di 40–100 % durasi; tutup → hilang di 35 % pertama
     const fade = opening
       ? animate(morph.content, 1, {
@@ -72,17 +62,20 @@ export function FlightLayer({ flight, morph, onLanded }: Props) {
       done = true;
       onLanded(flight.key); // kunci basi diabaikan reducer
     };
-    Promise.all(moves).then(land);
+    move.then(land);
     const safety = window.setTimeout(land, SAFETY_MS);
     return () => {
-      done = true; // flight digantikan: yang baru melanjutkan dari nilai live
+      done = true; // flight digantikan: yang baru melanjutkan dari rect live
       clearTimeout(safety);
+      move.stop();
       fade.stop();
       vanish?.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flight?.key]);
 
+  /** kotak proxy: gabungan kedua ujung flight (rect lanjutan saat interupsi selalu di antaranya) */
+  const shell = flight ? union(flight.from, flight.to) : null;
   const tileEnd = flight ? (flight.phase === 'opening' ? flight.from : flight.to) : null;
   const icon = tileEnd ? Math.round(Math.min(68, Math.max(28, Math.min(tileEnd.width, tileEnd.height) * 0.55))) : 0;
 
@@ -93,18 +86,22 @@ export function FlightLayer({ flight, morph, onLanded }: Props) {
           <motion.div
             key="proxy"
             className="flight-shell"
+            // kotak tetap seukuran jendela; yang bergerak hanya clip-path (tanpa layout per frame)
             style={{
-              x: morph.left,
-              y: morph.top,
-              width: morph.width,
-              height: morph.height,
-              borderRadius: morph.radius,
+              left: shell?.left ?? 0,
+              top: shell?.top ?? 0,
+              width: shell?.width ?? 0,
+              height: shell?.height ?? 0,
+              clipPath: morph.shellClip,
               opacity: morph.proxy,
             }}
             // proxy lenyap saat menyatu dengan kartu (tutup) atau tertutup jendela (buka)
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
           >
-            <motion.span className="flight-icon" style={{ opacity: morph.icon }}>
+            <motion.span
+              className="flight-icon"
+              style={{ opacity: morph.icon, x: morph.cx, y: morph.cy, marginLeft: -icon / 2, marginTop: -icon / 2 }}
+            >
               <AppTile id={flight.id} size={icon} />
             </motion.span>
           </motion.div>

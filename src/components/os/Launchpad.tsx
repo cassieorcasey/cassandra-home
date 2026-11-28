@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Fragment } from 'react';
+import { Fragment, memo } from 'react';
 import { apps } from '../../config/apps.config';
 import { WINDOW_MORPH } from '../../config/motion';
 import type { AppId } from '../../types/os';
@@ -87,7 +87,9 @@ function Split({ text, delay = 160, gradient = false }: { text: string; delay?: 
   );
 }
 
-export function Launchpad({ dim, barShown, running, reduced, onLaunch, registerTile }: Props) {
+export const Launchpad = memo(LaunchpadView);
+
+function LaunchpadView({ dim, barShown, running, reduced, onLaunch, registerTile }: Props) {
   const hidden = dim !== 'none';
   // fitur unggulan di depan, sisanya mengikuti urutan registri
   const ordered = [...apps.filter((a) => a.featured), ...apps.filter((a) => !a.featured)];

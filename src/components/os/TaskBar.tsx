@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { appById, apps } from '../../config/apps.config';
 import { BAR_H, nextPageFromSwipe, pageCount, pageOf, pageSlots, slotsWidth, TB_ICON, TB_SLOT } from '../../lib/taskbar';
 import type { AppId, RectSnapshot } from '../../types/os';
@@ -42,7 +42,9 @@ type Gesture = { id: number; x0: number; y0: number; axis: 'x' | 'y' | null; las
  * Multitask Bar: pil melayang di bawah dengan dua baris yang di-snap vertikal.
  * Baris 1 = tab aplikasi berjalan (4 per halaman, geser kiri/kanan), baris 2 = peluncur kelima aplikasi.
  */
-export function TaskBar({ tabs, activeId, minimized, row, page, perPage, onRow, onPage, onTab, onLaunch, registerTab, arriving, reduced }: Props) {
+export const TaskBar = memo(TaskBarView);
+
+function TaskBarView({ tabs, activeId, minimized, row, page, perPage, onRow, onPage, onTab, onLaunch, registerTab, arriving, reduced }: Props) {
   const n = tabs.length;
   const pages = pageCount(n, perPage);
   /** Lebar satu halaman tab (perPage ikon + jarak): geseran track per halaman. */

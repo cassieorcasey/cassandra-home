@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { usePerfLite } from '../../hooks/usePerfLite';
 
 const GREETINGS: { text: string; lang: string }[] = [
   { text: 'Selamat datang di', lang: 'id' },
@@ -20,20 +21,22 @@ const INTERVAL = 2600;
  */
 export function RotatingGreeting({ paused, reduced }: { paused: boolean; reduced: boolean }) {
   const [i, setI] = useState(0);
+  const lite = usePerfLite(); // perangkat lambat: sapaan berhenti di bahasa yang sedang tampil
 
   useEffect(() => {
-    if (paused || reduced) return;
+    if (paused || reduced || lite) return;
     const t = window.setInterval(() => {
       if (!document.hidden) setI((n) => (n + 1) % GREETINGS.length);
     }, INTERVAL);
     return () => clearInterval(t);
-  }, [paused, reduced]);
+  }, [paused, reduced, lite]);
 
   const g = GREETINGS[reduced ? 0 : i];
   return (
     <span className="greeting-rotor">
       <span className="sr-only">{GREETINGS[0].text}</span>
-      <AnimatePresence mode="popLayout" initial={false}>
+      {/* kata lama dan baru bertumpuk di sel grid yang sama: tanpa popLayout, tanpa ukur ulang tata letak */}
+      <AnimatePresence initial={false}>
         <motion.span
           key={g.lang}
           lang={g.lang}

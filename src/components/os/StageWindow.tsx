@@ -1,6 +1,6 @@
 import { Icon } from '../ui/Icon';
 import { motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { appById } from '../../config/apps.config';
 import type { Win, WindowActions } from '../../hooks/useWindowManager';
@@ -30,8 +30,8 @@ interface Props {
   expanded: boolean;
   /** Ada layar lain: header bisa diseret ke samping untuk pindah layar (kursor grab). */
   canSwitch: boolean;
-  /** Jendela layar tetangga yang mengintip di tepi: klik = pindah ke layarnya. */
-  onPeek?: () => void;
+  /** Jendela layar tetangga yang mengintip di tepi: layarnya (klik = pindah ke sana), selain itu null. */
+  peekTo: number | null;
   /** Desktop: header bisa diseret untuk mengatur posisi (ada jendela/layar lain). */
   arrange: boolean;
   /** Jendela lain sedang diseret di atas jendela ini: lepas = bertukar tempat. */
@@ -51,6 +51,11 @@ interface Props {
 const spring = { type: 'spring', stiffness: 340, damping: 30, mass: 0.9 } as const;
 const reducedFade = WINDOW_MORPH.reducedFadeMs / 1000;
 const LOAD_TIMEOUT_MS = 15000;
+/** Tinggi header jendela (CSS .window-header) dan garis tepi 1 px tiap sisi: selisih jendela → area isi. */
+const HEADER_H = 48;
+const EDGE = 2;
+/** Batas waktu memaku iframe bila animasi tidak melaporkan selesai. */
+const PIN_SETTLE_MS = 700;
 
 const EDGES: ResizeEdge[] = ['e', 'w', 's', 'se', 'sw'];
 const CURSOR: Record<ResizeEdge, string> = { e: 'ew-resize', w: 'ew-resize', s: 'ns-resize', se: 'nwse-resize', sw: 'nesw-resize' };
@@ -84,7 +89,37 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, arrange, dropTarget, resizable, bounds, instant, reduced, wm, onFrameKey }: Props) {
+/** Render ulang hanya bila sesuatu yang memengaruhi jendela ini berubah (bukan setiap render App). */
+const sameRect = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+  a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+function propsEqual(a: Props, b: Props) {
+  return (
+    a.win === b.win &&
+    a.placement === b.placement &&
+    a.focused === b.focused &&
+    a.split === b.split &&
+    sameRect(a.target, b.target) &&
+    a.target.scale === b.target.scale &&
+    a.target.opacity === b.target.opacity &&
+    a.morph === b.morph &&
+    a.mobile === b.mobile &&
+    a.expanded === b.expanded &&
+    a.canSwitch === b.canSwitch &&
+    a.peekTo === b.peekTo &&
+    a.arrange === b.arrange &&
+    a.dropTarget === b.dropTarget &&
+    a.resizable === b.resizable &&
+    sameRect(a.bounds, b.bounds) &&
+    a.instant === b.instant &&
+    a.reduced === b.reduced &&
+    a.wm === b.wm &&
+    a.onFrameKey === b.onFrameKey
+  );
+}
+
+export const StageWindow = memo(StageWindowView, propsEqual);
+
+function StageWindowView({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, peekTo, arrange, dropTarget, resizable, bounds, instant, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const placed = placement === 'stage';
@@ -124,6 +159,33 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     if (live) wm.setCustomSize(win.id, live);
     setLive(null);
   };
+
+  // ---- isi iframe "menyusul": selama ukuran jendela beranimasi atau diseret, iframe dipaku di ukuran
+  // terbesar yang dilewati (dipotong / ada ruang kosong) dan baru menyesuaikan sekali di akhir. Mengubah
+  // ukuran iframe tiap frame memaksa app di dalamnya me-layout ulang puluhan kali per detik.
+  // Ukuran iframe terakhir yang sudah menyesuaikan; paku diturunkan dari situ (tanpa setState saat render):
+  //  - diseret (garis pembatas / sudut): iframe tetap di ukuran settle, tidak berubah per gerakan;
+  //  - beranimasi ke ukuran baru: iframe di ukuran terbesar antara settle dan tujuan, sekali.
+  const [settled, setSettled] = useState({ w: target.w, h: target.h });
+  const curW = live ? live.w : target.w;
+  const curH = live ? live.h : target.h;
+  const holding = instant || !!live;
+  const pin =
+    reduced || !placed || (!holding && settled.w === curW && settled.h === curH)
+      ? null
+      : holding
+        ? settled
+        : { w: Math.max(settled.w, curW), h: Math.max(settled.h, curH) };
+  const unpin = () => {
+    if (!holding && (settled.w !== curW || settled.h !== curH)) setSettled({ w: curW, h: curH });
+  };
+  // cadangan bila animasi tidak memicu onAnimationComplete (mis. ukuran akhir sama dengan seretan terakhir)
+  const pinned = !!pin;
+  useEffect(() => {
+    if (!pinned || holding) return;
+    const t = window.setTimeout(() => setSettled({ w: curW, h: curH }), PIN_SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [pinned, holding, curW, curH]);
 
   /** Desktop: posisi kiri-atas jendela yang sedang diseret (menempel ke titik pegangan kursor). */
   const [free, setFree] = useState<{ x: number; y: number } | null>(null);
@@ -268,7 +330,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   return (
     <motion.section
-      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile ? canSwitch : arrange) ? 'is-swipeable' : ''} ${free ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${resizable ? 'is-resizable' : ''} ${live ? 'is-interacting' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
+      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile ? canSwitch : arrange) ? 'is-swipeable' : ''} ${free ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${resizable ? 'is-resizable' : ''} ${live ? 'is-interacting' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${peekTo !== null ? 'is-peek' : ''}`}
       data-app={win.id}
       aria-label={app.name}
       aria-hidden={!placed || undefined}
@@ -282,7 +344,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
         draggedRef.current = false;
         e.stopPropagation();
       }}
-      onClick={onPeek}
+      onClick={peekTo !== null ? () => wm.goToScreen(peekTo) : undefined}
       initial={initial}
       animate={{
         x: geo.x,
@@ -298,6 +360,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
         transitionEnd: hideNow ? { visibility: 'hidden' } : undefined,
       }}
       exit={exit}
+      onAnimationComplete={unpin}
       transition={
         offset || free || live || instant || collapsed
           ? { duration: 0 }
@@ -381,6 +444,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
                   wm.markReady(win.id);
                 }}
                 className={loading ? 'is-loading' : ''}
+                style={pin ? { width: Math.max(0, pin.w - EDGE), height: Math.max(0, pin.h - HEADER_H - EDGE) } : undefined}
               />
               {loading && (
                 <div className="frame-placeholder">
