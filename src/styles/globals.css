@@ -894,39 +894,56 @@ body {
 .stage-window.is-interacting .window-header {
   cursor: grabbing;
 }
-/* penanda tepi: ikon app di layar sebelah, di celah 24 px tepi stage */
-.screen-peek {
-  position: fixed;
-  z-index: 35;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 22px;
-  padding: 8px 0;
-  border: 0;
-  border-radius: 11px;
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--card-border), var(--shadow);
-  color: var(--ink-2);
+
+/* jendela layar tetangga yang mengintip di tepi: isinya inert, seluruh kotaknya = tombol pindah layar */
+.stage-track .stage-window.is-peek {
+  pointer-events: auto;
   cursor: pointer;
 }
-.screen-peek[data-side='right'] {
-  right: 1px;
+/* sensor tepi (desktop, meniru cutefish.my.id): kursor masuk = pindah layar seketika */
+.edge-sensor {
+  position: fixed;
+  z-index: 35;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  cursor: pointer;
 }
-.screen-peek[data-side='left'] {
-  left: 1px;
+.edge-sensor[data-side='right'] {
+  right: 0;
 }
-.screen-peek .app-tile {
-  border-radius: 5px;
+.edge-sensor[data-side='left'] {
+  left: 0;
 }
-.screen-peek:hover {
+/* ponsel: tombol panah melayang di tepi */
+.screen-arrow {
+  position: fixed;
+  z-index: 35;
+  /* bukan di tengah: di ponsel header jendela bawah tepat di tengah layar */
+  top: 30%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink-3), var(--shadow);
+  box-shadow: 0 0 0 1px var(--card-border), var(--shadow);
+  transition: transform 140ms ease;
 }
-.screen-peek:focus-visible {
+.screen-arrow:active {
+  transform: translateY(-50%) scale(0.92);
+}
+.screen-arrow[data-side='left'] {
+  left: 6px;
+}
+.screen-arrow[data-side='right'] {
+  right: 6px;
+}
+.screen-arrow:focus-visible {
   outline: 2px solid var(--ink-2);
   outline-offset: 2px;
 }

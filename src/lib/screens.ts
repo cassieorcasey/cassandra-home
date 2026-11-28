@@ -55,3 +55,32 @@ export function screenLayout(tabs: AppId[], minimized: Set<AppId>, screen: numbe
   const cells = gridCells(stage, visible.length, gap);
   return new Map(visible.map((id, i) => [id, cells[i]] as const));
 }
+
+/** Ukuran viewport dan tata letak "mengintip" saat ada lebih dari satu layar. */
+export interface PeekSpec {
+  /** lebar viewport */
+  w: number;
+  /** lebar tepi layar tetangga yang terlihat */
+  peek: number;
+  /** jarak antara layar */
+  gap: number;
+  /** margin kiri layar pertama */
+  margin: number;
+}
+
+/**
+ * Bingkai layar `s` (dari `count` layar) dalam koordinat viewport saat layar `current` tampil.
+ * Satu layar: stage apa adanya. Lebih dari satu: layar dirantai ke kanan dan menyempit, sehingga
+ * tepi layar tetangga terlihat selebar `peek` di kiri/kanan; pindah layar menggeser rantai
+ * sejauh `w - 2·peek - gap`.
+ */
+export function screenFrame(stage: Rect, p: PeekSpec, s: number, count: number, current: number): Rect {
+  if (count <= 1) return stage;
+  const shift = p.w - 2 * p.peek - p.gap;
+  const base = s === 0 ? p.margin : p.w - p.peek + (s - 1) * shift;
+  const w = s === 0 ? p.w - p.peek - p.gap - p.margin : p.w - 2 * p.peek - 2 * p.gap;
+  return { x: base - current * shift, y: stage.y, w, h: stage.h };
+}
+
+/** Jarak geser rantai layar per layar (dipakai juga sebagai lebar ambang seret). */
+export const screenShift = (p: PeekSpec) => p.w - 2 * p.peek - p.gap;

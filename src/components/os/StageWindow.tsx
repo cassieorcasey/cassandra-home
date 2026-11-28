@@ -29,6 +29,8 @@ interface Props {
   expanded: boolean;
   /** Ada layar lain: header bisa diseret ke samping untuk pindah layar (kursor grab). */
   canSwitch: boolean;
+  /** Jendela layar tetangga yang mengintip di tepi: klik = pindah ke layarnya. */
+  onPeek?: () => void;
   reduced: boolean;
   wm: WindowActions;
   /** Tombol dari dalam iframe jendela ini (id = jendela asal). */
@@ -60,7 +62,7 @@ interface Gesture {
   v: number;
 }
 
-export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, reduced, wm, onFrameKey }: Props) {
+export function StageWindow({ win, placement, focused, split, target, morph, mobile, expanded, canSwitch, onPeek, reduced, wm, onFrameKey }: Props) {
   const app = appById(win.id);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const placed = placement === 'stage';
@@ -77,6 +79,8 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
   /** Header sedang diseret (layar mengikuti kursor): iframe tidak boleh mencuri pointer. */
   const [dragging, setDragging] = useState(false);
   const gesture = useRef<Gesture | null>(null);
+  /** Seretan baru saja selesai (arah sempat terkunci): telan klik yang menyusul pointerup. */
+  const draggedRef = useRef(false);
 
   const onHeaderDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (!swipeable || e.button !== 0 || (e.target as Element).closest(NO_DRAG)) return;
@@ -113,6 +117,11 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
     gesture.current = null;
     setOffset(null);
     setDragging(false);
+    if (g.axis) {
+      draggedRef.current = true;
+      // tidak ada klik yang menyusul (mis. pointercancel): jangan telan klik berikutnya yang sungguhan
+      window.setTimeout(() => (draggedRef.current = false), 0);
+    }
     if (g.axis === 'x') {
       // geser ke kiri = layar berikutnya, ke kanan = sebelumnya (App memutuskan dari jarak & kecepatan)
       wm.endScreenDrag(g.dx, g.v * 1000, !commit);
@@ -175,7 +184,7 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
 
   return (
     <motion.section
-      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile || canSwitch) ? 'is-swipeable' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''}`}
+      className={`stage-window ${placed ? 'is-placed' : ''} ${focused ? 'is-focused is-active' : ''} ${split ? 'is-split' : ''} ${placement !== 'stage' ? 'is-hidden' : ''} ${swipeable && (mobile || canSwitch) ? 'is-swipeable' : ''} ${offset || dragging ? 'is-interacting' : ''} ${morph ? 'is-morphing' : ''} ${collapsed ? 'is-collapsed' : ''} ${onPeek ? 'is-peek' : ''}`}
       data-app={win.id}
       aria-label={app.name}
       aria-hidden={!placed || undefined}
@@ -183,6 +192,13 @@ export function StageWindow({ win, placement, focused, split, target, morph, mob
       // klik/ketuk di mana pun di jendela (header, tepi) memfokusnya; klik di dalam iframe
       // ditangani App lewat window blur
       onPointerDownCapture={() => placed && !focused && wm.focus(win.id)}
+      // klik yang dibuat browser saat seretan header dilepas bukan ketukan pada jendela yang mengintip
+      onClickCapture={(e) => {
+        if (!draggedRef.current) return;
+        draggedRef.current = false;
+        e.stopPropagation();
+      }}
+      onClick={onPeek}
       initial={initial}
       animate={{
         x: geo.x,

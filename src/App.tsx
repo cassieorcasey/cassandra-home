@@ -9,9 +9,8 @@ import { IconFlight, type IconFlightSpec } from './components/stage/IconFlight';
 import { useMorph } from './hooks/useMorph';
 import { stageRect, useViewport } from './hooks/useViewport';
 import { isLive, tabIds, useWindowManager, type WindowActions } from './hooks/useWindowManager';
-import { screenLayout } from './lib/screens';
+import { screenFrame, screenLayout, screenShift, type PeekSpec } from './lib/screens';
 import { clampPage, nextPageFromSwipe, pageCount, pageOf, screenCapacity, tabSlotRect, TB_ICON } from './lib/taskbar';
-import { AppTile } from './components/ui/AppTile';
 import { Icon } from './components/ui/Icon';
 import type { AppId, Rect, RectSnapshot } from './types/os';
 
@@ -20,7 +19,10 @@ const SCREEN_SPRING = { type: 'spring', stiffness: 420, damping: 38 } as const;
 /** Geser trackpad ke samping sejauh ini (akumulasi deltaX) untuk pindah layar. */
 const WHEEL_SWITCH = 60;
 const WHEEL_LOCK_MS = 500;
-
+/** Sensor tepi mengabaikan kursor sesaat setelah layar berpindah atau seretan header dilepas: sensor
+ *  yang muncul/berada di bawah kursor saat itu menerima pointerenter dari browser, dan itu bukan
+ *  gerakan pengguna menuju tepi. */
+const SENSOR_SETTLE_MS = 450;
 /** Radius jendela: 18 px di desktop, 14 px di ponsel. */
 const WIN_RADIUS = 18;
 const WIN_RADIUS_MOBILE = 14;
@@ -62,8 +64,14 @@ export default function App() {
   /** Area "penuhi layar" untuk jendela yang di-expand. */
   const fullStage = vp.mobile ? stage : stageRect(vp, true);
 
-  /** Layout layar `s` untuk urutan tab & himpunan diperkecil tertentu. */
-  const layout = (s: number, list: AppId[] = tabs, min: Set<AppId> = minimizedSet) => screenLayout(list, min, s, K, stage, gap);
+  /** Layar tetangga mengintip di tepi saat ada lebih dari satu layar (54 px desktop, 24 px ponsel). */
+  const peekSpec: PeekSpec = vp.mobile ? { w: vp.w, peek: 24, gap: 8, margin: 8 } : { w: vp.w, peek: 54, gap: 12, margin: 24 };
+  /**
+   * Layout layar `s` untuk urutan tab & himpunan diperkecil tertentu, dalam koordinat viewport saat
+   * layar `cur` tampil (layar lain bergeser ke samping; tetangganya mengintip di tepi).
+   */
+  const layout = (s: number, list: AppId[] = tabs, min: Set<AppId> = minimizedSet, cur: number = screen) =>
+    screenLayout(list, min, s, K, screenFrame(stage, peekSpec, s, pageCount(list.length, K), cur), gap);
   const without = (set: Set<AppId>, id: AppId) => new Set([...set].filter((x) => x !== id));
   const screenOf = (id: AppId, list: AppId[] = tabs) => pageOf(Math.max(list.indexOf(id), 0), K);
   /** Sel jendela `id` bila tampil (diperkecil pun dihitung seolah tampil). */
@@ -134,7 +142,7 @@ export default function App() {
       const start = source === 'tile' ? iconIn(from, 68) : iconIn(from, TB_ICON);
       setIconFlight({ key: performance.now(), id, from: start, to: tabSlotRect(vp, list.length, idx, s, K) });
     }
-    const cell = layout(s, list, without(minimizedSet, id)).get(id) ?? stage;
+    const cell = layout(s, list, without(minimizedSet, id), s).get(id) ?? stage;
     wm.launch(id, { from, to: snap(cell), fade: false });
   };
 
@@ -175,8 +183,11 @@ export default function App() {
     const atEdge = (dx > 0 && screen === 0) || (dx < 0 && screen >= screens - 1);
     dragX.set(atEdge ? dx * 0.15 : dx); // tahanan karet di ujung
   };
+  /** Awal masa tenang sensor tepi (perpindahan layar / seretan dilepas). */
+  const sensorQuietFrom = useRef(0);
   const endScreenDrag = (dx: number, v: number, cancelled: boolean) => {
-    const next = cancelled ? screen : nextPageFromSwipe(screen, tabs.length, dx, vp.w, v, K);
+    sensorQuietFrom.current = performance.now();
+    const next = cancelled ? screen : nextPageFromSwipe(screen, tabs.length, dx, screens > 1 ? screenShift(peekSpec) : vp.w, v, K);
     if (next !== screen) goScreen(next);
     // jendela meluncur ke posisi layar barunya sementara offset seret kembali ke 0: geraknya menyambung
     dragAnim.current = animate(dragX, 0, reduced ? { duration: 0 } : SCREEN_SPRING);
@@ -294,31 +305,43 @@ export default function App() {
     return () => window.removeEventListener('wheel', on);
   }, []);
 
-  /** Penanda tepi (desktop/tablet): ikon app di layar sebelah, klik = pindah layar. */
-  const peek = (side: 'left' | 'right') => {
+  useEffect(() => {
+    sensorQuietFrom.current = performance.now();
+  }, [screen]);
+
+  /**
+   * Pindah layar lewat tepi (meniru cutefish.my.id): di desktop, sensor tak terlihat selebar 72 px di
+   * atas tepi layar tetangga yang mengintip; kursor masuk = langsung pindah, tanpa klik dan tanpa jeda.
+   * Di ponsel (tanpa kursor): tombol panah melayang di kiri/kanan.
+   */
+  const edgeControl = (side: 'left' | 'right') => {
     const s = screen + (side === 'right' ? 1 : -1);
-    if (vp.mobile || s < 0 || s >= screens || visibleNow.length === 0) return null;
-    const ids = tabs.slice(s * K, s * K + K);
+    if (s < 0 || s >= screens || visibleNow.length === 0) return null;
+    if (vp.mobile) {
+      return (
+        <button
+          key={side}
+          type="button"
+          className="screen-arrow"
+          data-side={side}
+          aria-label={side === 'right' ? 'Layar berikutnya' : 'Layar sebelumnya'}
+          onClick={() => goScreen(s)}
+        >
+          <Icon name={side === 'right' ? 'chevron-right' : 'chevron-left'} size={22} />
+        </button>
+      );
+    }
     return (
-      <motion.button
+      <div
         key={side}
-        type="button"
-        className="screen-peek"
+        className="edge-sensor"
         data-side={side}
-        aria-label={`Layar ${s + 1}: ${ids.length} aplikasi`}
-        title={side === 'right' ? 'Layar berikutnya (Ctrl + →)' : 'Layar sebelumnya (Ctrl + ←)'}
+        aria-hidden
+        onPointerEnter={(e) =>
+          e.pointerType === 'mouse' && e.buttons === 0 && performance.now() - sensorQuietFrom.current > SENSOR_SETTLE_MS && goScreen(s)
+        }
         onClick={() => goScreen(s)}
-        initial={{ opacity: 0, x: side === 'right' ? 12 : -12 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: side === 'right' ? 12 : -12 }}
-        transition={{ duration: reduced ? 0.12 : 0.2 }}
-      >
-        {side === 'left' && <Icon name="chevron-left" size={14} />}
-        {ids.map((id) => (
-          <AppTile key={id} id={id} size={18} />
-        ))}
-        {side === 'right' && <Icon name="chevron-right" size={14} />}
-      </motion.button>
+      />
     );
   };
 
@@ -350,12 +373,9 @@ export default function App() {
               // tetap di selnya agar memulihkan dari tab tidak melompat
               target = { ...cellOf(win.id), scale: 1, opacity: 0 };
             } else {
-              const s = screenOf(win.id);
-              const cell = cellOf(win.id);
-              // layar lain: di sel layarnya, digeser sejauh lebar viewport per layar (bergeser saat pindah layar)
-              const dx = (s - screen) * vp.w;
-              placement = s === screen ? 'stage' : 'offscreen';
-              target = { ...cell, x: cell.x + dx, scale: 1, opacity: 1 };
+              // layar lain sudah tergeser oleh bingkai layarnya (screenFrame); tetangga mengintip di tepi
+              placement = screenOf(win.id) === screen ? 'stage' : 'offscreen';
+              target = { ...cellOf(win.id), scale: 1, opacity: 1 };
             }
             return (
               <StageWindow
@@ -369,6 +389,7 @@ export default function App() {
                 mobile={vp.mobile}
                 expanded={state.expanded && win.id === focusedId}
                 canSwitch={screens > 1}
+                onPeek={!isLive(win) || win.minimized || screenOf(win.id) === screen ? undefined : () => goScreen(screenOf(win.id))}
                 reduced={reduced}
                 wm={actions}
                 onFrameKey={onKey}
@@ -378,10 +399,8 @@ export default function App() {
         </AnimatePresence>
       </motion.div>
 
-      <AnimatePresence>
-        {peek('left')}
-        {peek('right')}
-      </AnimatePresence>
+      {edgeControl('left')}
+      {edgeControl('right')}
 
       {/* Bar hanya ada selama ada app berjalan: muncul dari bawah saat app pertama dibuka,
           turun lagi setelah app terakhir ditutup. Home tanpa app tetap bersih. */}

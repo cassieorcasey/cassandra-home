@@ -23,3 +23,15 @@ dengan menggeser layar memakai kursor, tanpa scroll di bar.
 ## Keputusan saya
 - Ambang dan pegas sama dengan halaman bar (30 % / flick 500 px/s).
 - Penanda tepi tidak ditampilkan di HP (layar sempit; titik halaman di bar sudah ada).
+
+## Revisi (permintaan pengguna): meniru cutefish.my.id
+Diamati dari `core/window-manager.js` dan `styles/window-manager.css` situs itu. Pengguna memilih
+dua bagian: layar tetangga mengintip dan sensor tepi tanpa jeda.
+- **Mengintip:** saat ada lebih dari satu layar, layar-layar dirantai ke kanan dan menyempit;
+  tepi layar tetangga terlihat 54 px (24 px di ponsel). Rantai bergeser `lebar − 2·intip − jarak`
+  per layar. Klik jendela yang mengintip = pindah ke layarnya.
+- **Sensor tepi (desktop):** area tak terlihat 72 px di kiri/kanan; kursor masuk = pindah layar
+  seketika, tanpa klik dan tanpa jeda. Sensor diam 450 ms setelah layar berpindah atau seretan
+  header dilepas (browser mengirim pointerenter ke sensor yang muncul di bawah kursor yang diam).
+- **Ponsel:** tombol panah melayang di kiri/kanan.
+- Pil ikon di tepi dan "tepi panas" berjeda dihapus. Animasi buka dan susunan grid kita tetap.

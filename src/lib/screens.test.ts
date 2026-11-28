@@ -44,3 +44,26 @@ test('screenLayout keeps only visible apps on that screen', () => {
   const s2 = screenLayout([...tabs], new Set(), 1, 4, stage, 12);
   expect([...s2.keys()]).toEqual(['wishy']);
 });
+
+import { screenFrame } from './screens';
+const deskStage = { x: 24, y: 12, w: 1392, h: 788 };
+const desk = { w: 1440, peek: 54, gap: 12, margin: 24 };
+test('screenFrame: one screen keeps the plain stage', () => {
+  expect(screenFrame(deskStage, desk, 0, 1, 0)).toEqual(deskStage);
+});
+test('screenFrame: first of two screens leaves room for the next one to peek', () => {
+  expect(screenFrame(deskStage, desk, 0, 2, 0)).toEqual({ x: 24, y: 12, w: 1350, h: 788 });
+  // layar 2 mulai di 1440 - 54: tepinya terlihat 54 px
+  expect(screenFrame(deskStage, desk, 1, 2, 0).x).toBe(1386);
+});
+test('screenFrame: on the second screen the first one peeks on the left', () => {
+  expect(screenFrame(deskStage, desk, 1, 2, 1)).toEqual({ x: 66, y: 12, w: 1308, h: 788 });
+  const prev = screenFrame(deskStage, desk, 0, 2, 1);
+  expect(prev.x + prev.w).toBe(54);
+});
+test('screenFrame: phone peek is 24 px', () => {
+  const st = { x: 0, y: 47, w: 390, h: 675 };
+  const ph = { w: 390, peek: 24, gap: 8, margin: 8 };
+  expect(screenFrame(st, ph, 0, 2, 0)).toEqual({ x: 8, y: 47, w: 350, h: 675 });
+  expect(screenFrame(st, ph, 1, 2, 0).x).toBe(366);
+});
