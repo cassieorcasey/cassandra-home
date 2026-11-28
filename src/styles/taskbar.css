@@ -1,12 +1,19 @@
 /* ---- Multitask Bar ----
    Pil melayang di tengah bawah, di atas jendela (30) dan proxy morph (25).
    Tinggi 64 px = BAR_H; stage menyisakan 88 px (BAR_RESERVED) di bawah. */
-.taskbar {
+.taskbar-slot {
   position: fixed;
   z-index: 40;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.taskbar {
+  position: relative;
+  pointer-events: auto;
   height: 64px;
   display: flex;
   align-items: center;

@@ -18,6 +18,8 @@ export type LaunchpadDim = 'none' | 'dim' | 'away';
 
 interface Props {
   dim: LaunchpadDim;
+  /** Multitask Bar tampil di bawah: Home menyisakan ruang untuknya. */
+  barShown: boolean;
   running: Set<string>;
   reduced: boolean;
   onLaunch: (id: AppId) => void;
@@ -85,14 +87,14 @@ function Split({ text, delay = 160, gradient = false }: { text: string; delay?: 
   );
 }
 
-export function Launchpad({ dim, running, reduced, onLaunch, registerTile }: Props) {
+export function Launchpad({ dim, barShown, running, reduced, onLaunch, registerTile }: Props) {
   const hidden = dim !== 'none';
   // fitur unggulan di depan, sisanya mengikuti urutan registri
   const ordered = [...apps.filter((a) => a.featured), ...apps.filter((a) => !a.featured)];
 
   return (
     <motion.main
-      className="launchpad"
+      className={barShown ? 'launchpad has-bar' : 'launchpad'}
       inert={hidden}
       aria-hidden={hidden}
       animate={{ opacity: dim === 'away' ? 0 : dim === 'dim' ? 0.65 : 1, scale: hidden && !reduced ? 0.98 : 1 }}

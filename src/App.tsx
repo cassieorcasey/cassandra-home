@@ -1,4 +1,4 @@
-import { AnimatePresence, MotionConfig, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Launchpad, type LaunchpadDim } from './components/os/Launchpad';
 import { SpotlightModal } from './components/os/SpotlightModal';
@@ -255,7 +255,7 @@ export default function App() {
       <div id="safe-probe-top" aria-hidden />
       <div id="safe-probe" aria-hidden />
 
-      <Launchpad dim={dim} running={running} reduced={reduced} onLaunch={(id) => launch(id, null)} registerTile={wm.registerTileElement} />
+      <Launchpad dim={dim} barShown={tabs.length > 0} running={running} reduced={reduced} onLaunch={(id) => launch(id, null)} registerTile={wm.registerTileElement} />
 
       <AnimatePresence>
         {state.wins.map((win) => {
@@ -299,28 +299,43 @@ export default function App() {
         })}
       </AnimatePresence>
 
-      <TaskBar
-        tabs={tabs}
-        activeId={focusedId}
-        minimized={minimizedSet}
-        row={row}
-        page={screen}
-        perPage={K}
-        onRow={setBarRow}
-        onPage={goScreen}
-        onTab={(id) => {
-          if (id === focusedId) minimize(id);
-          else if (minimizedSet.has(id)) launch(id, wm.getTabRect(id), 'bar');
-          else {
-            setBarPage(screenOf(id));
-            wm.focus(id);
-          }
-        }}
-        onLaunch={(id, origin) => launch(id, origin, 'bar')}
-        arriving={iconFlight?.id ?? null}
-        registerTab={wm.registerTabElement}
-        reduced={reduced}
-      />
+      {/* Bar hanya ada selama ada app berjalan: muncul dari bawah saat app pertama dibuka,
+          turun lagi setelah app terakhir ditutup. Home tanpa app tetap bersih. */}
+      <AnimatePresence>
+        {tabs.length > 0 && (
+          <motion.div
+            key="taskbar"
+            className="taskbar-slot"
+            initial={reduced ? { opacity: 0 } : { y: '140%' }}
+            animate={reduced ? { opacity: 1 } : { y: 0 }}
+            exit={reduced ? { opacity: 0 } : { y: '140%' }}
+            transition={reduced ? { duration: 0.12 } : { type: 'spring', stiffness: 380, damping: 34 }}
+          >
+            <TaskBar
+              tabs={tabs}
+              activeId={focusedId}
+              minimized={minimizedSet}
+              row={row}
+              page={screen}
+              perPage={K}
+              onRow={setBarRow}
+              onPage={goScreen}
+              onTab={(id) => {
+                if (id === focusedId) minimize(id);
+                else if (minimizedSet.has(id)) launch(id, wm.getTabRect(id), 'bar');
+                else {
+                  setBarPage(screenOf(id));
+                  wm.focus(id);
+                }
+              }}
+              onLaunch={(id, origin) => launch(id, origin, 'bar')}
+              arriving={iconFlight?.id ?? null}
+              registerTab={wm.registerTabElement}
+              reduced={reduced}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <FlightLayer flight={flight} morph={morph} onLanded={wm.landed} />
       <IconFlight flight={iconFlight} onDone={(key) => setIconFlight((f) => (f && f.key === key ? null : f))} />

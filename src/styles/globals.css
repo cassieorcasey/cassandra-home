@@ -188,14 +188,20 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
   overflow-y: auto;
   z-index: 10;
-  /* ruang untuk Multitask Bar (88 px = BAR_RESERVED) + jarak napas + indikator Home */
+  /* jarak napas + indikator Home */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  --bar-space: 0px;
+}
+/* Multitask Bar tampil (ada app berjalan): sisakan 88 px (= BAR_RESERVED) di bawah */
+.launchpad.has-bar {
+  --bar-space: 88px;
   padding-bottom: calc(88px + 24px + env(safe-area-inset-bottom, 0px));
 }
 /* Hero terpusat (tata letak mengikuti referensi): sapaan, judul + ombak, ajakan, kartu aplikasi */
 .hero {
   /* judul diskalakan terhadap lebar hero (bukan viewport) */
   container-type: inline-size;
-  min-height: calc(100svh - 24px - 88px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100svh - 24px - var(--bar-space) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   max-width: 1048px;
   margin-inline: auto;
   padding: clamp(32px, 7vh, 72px) 24px 24px;
